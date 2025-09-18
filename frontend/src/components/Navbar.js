@@ -21,6 +21,7 @@ const Navbar = () => {
             ) : (
               <Link to="/dashboard" className="nav-link">Member Dashboard</Link>
             )}
+            <Link to="/blog" className="nav-link">Blog</Link>
             <div className="user-info">
               <User size={20} />
               <span className="user-name">
@@ -34,6 +35,7 @@ const Navbar = () => {
           </div>
         ) : (
           <div className="navbar-nav">
+            <Link to="/blog" className="nav-link">Blog</Link>
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/register" className="nav-link">Register</Link>
           </div>

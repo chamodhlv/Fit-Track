@@ -16,6 +16,7 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/workouts', require('./routes/workouts'));
+app.use('/api/blogs', require('./routes/blogs'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {

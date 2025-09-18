@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI } from '../services/api';
-import { Users, Edit, Trash2, UserPlus } from 'lucide-react';
+import { usersAPI, blogsAPI } from '../services/api';
+import { Users, Edit, Trash2, UserPlus, FileText, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [totalMembers, setTotalMembers] = useState(0);
   const [users, setUsers] = useState([]);
@@ -25,9 +27,23 @@ const AdminDashboard = () => {
     experienceLevel: 'beginner'
   });
 
+  // Blog management state
+  const [blogLoading, setBlogLoading] = useState(true);
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogCurrentPage, setBlogCurrentPage] = useState(1);
+  const [blogTotalPages, setBlogTotalPages] = useState(1);
+  const [editingBlogId, setEditingBlogId] = useState(null);
+  const [blogEditForm, setBlogEditForm] = useState({ title: '', content: '', coverImageUrl: '' });
+  const [showAddPost, setShowAddPost] = useState(false);
+  const [newPostForm, setNewPostForm] = useState({ title: '', content: '', coverImageUrl: '' });
+
   useEffect(() => {
     fetchUsers();
   }, [currentPage]);
+
+  useEffect(() => {
+    fetchBlogPosts();
+  }, [blogCurrentPage]);
 
   const fetchUsers = async () => {
     try {
@@ -39,6 +55,87 @@ const AdminDashboard = () => {
       toast.error('Failed to fetch users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Blog posts: list
+  const fetchBlogPosts = async () => {
+    try {
+      setBlogLoading(true);
+      const res = await blogsAPI.adminList(blogCurrentPage, 10);
+      setBlogPosts(res.data.posts || []);
+      setBlogTotalPages(res.data.totalPages || 1);
+    } catch (error) {
+      toast.error('Failed to fetch blog posts');
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
+  // Blog posts: edit init
+  const handleEditPost = (post) => {
+    // Navigate to full editor page with preloaded state
+    navigate(`/admin/blogs/${post._id}/edit`, { state: { post } });
+  };
+
+  // Blog posts: update
+  const handleUpdatePost = async (postId) => {
+    try {
+      const payload = {
+        title: blogEditForm.title,
+        content: blogEditForm.content,
+        coverImageUrl: blogEditForm.coverImageUrl || undefined,
+      };
+      await blogsAPI.update(postId, payload);
+      toast.success('Post updated successfully');
+      setEditingBlogId(null);
+      fetchBlogPosts();
+    } catch (error) {
+      const errs = error?.response?.data?.errors;
+      if (Array.isArray(errs) && errs.length) {
+        toast.error(errs.map((e) => e.msg).join('\n'));
+      } else {
+        toast.error(error?.response?.data?.message || 'Failed to update post');
+      }
+    }
+  };
+
+  // Blog posts: delete
+  const handleDeletePost = async (postId) => {
+    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      try {
+        await blogsAPI.remove(postId);
+        toast.success('Post deleted successfully');
+        fetchBlogPosts();
+      } catch (error) {
+        toast.error('Failed to delete post');
+      }
+    }
+  };
+
+  // Blog posts: create
+  const handleCreatePost = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        title: newPostForm.title,
+        content: newPostForm.content,
+        coverImageUrl: newPostForm.coverImageUrl || undefined,
+      };
+      await blogsAPI.create(payload);
+      toast.success('Post created successfully');
+      setShowAddPost(false);
+      setNewPostForm({ title: '', content: '', coverImageUrl: '' });
+      // refresh list
+      if (blogCurrentPage !== 1) setBlogCurrentPage(1);
+      fetchBlogPosts();
+    } catch (error) {
+      const errs = error?.response?.data?.errors;
+      if (Array.isArray(errs) && errs.length) {
+        toast.error(errs.map((e) => e.msg).join('\n'));
+      } else {
+        toast.error(error?.response?.data?.message || 'Failed to create post');
+      }
     }
   };
 
@@ -421,6 +518,140 @@ const AdminDashboard = () => {
                     <UserPlus size={16} style={{ marginRight: '4px' }} />
                     Create Member
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Blog Post Management Section */}
+        <div className="section-header" style={{ marginTop: '2rem' }}>
+          <h2 className="section-title">
+            <FileText size={24} style={{ marginRight: '8px' }} />
+            Blog Post Management
+          </h2>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/blogs/new')}>
+            <Plus size={16} style={{ marginRight: '4px' }} /> New Post
+          </button>
+        </div>
+
+        {blogLoading ? (
+          <div className="loading"><div className="spinner"></div></div>
+        ) : blogPosts.length === 0 ? (
+          <div className="card text-center">
+            <FileText size={48} style={{ margin: '0 auto 1rem', color: '#ccc' }} />
+            <h3>No posts found</h3>
+            <p>Create your first fitness blog post.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blogPosts.map((post) => (
+                  <tr key={post._id}>
+                    <td>
+                      {editingBlogId === post._id ? (
+                        <input
+                          type="text"
+                          value={blogEditForm.title}
+                          onChange={(e) => setBlogEditForm({ ...blogEditForm, title: e.target.value })}
+                          className="form-input"
+                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
+                        />
+                      ) : (
+                        <div style={{ fontWeight: 600 }}>{post.title}</div>
+                      )}
+                    </td>
+                    <td>{formatDate(post.createdAt)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {editingBlogId === post._id ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdatePost(post._id)}
+                              className="btn btn-success"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingBlogId(null)}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditPost(post)}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                              title="Edit Post"
+                            >
+                              <Edit size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePost(post._id)}
+                              className="btn btn-danger"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                              title="Delete Post"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {blogTotalPages > 1 && (
+          <div className="pagination">
+            <button onClick={() => setBlogCurrentPage((p) => Math.max(p - 1, 1))} disabled={blogCurrentPage === 1}>Previous</button>
+            {Array.from({ length: blogTotalPages }, (_, i) => i + 1).map((page) => (
+              <button key={page} onClick={() => setBlogCurrentPage(page)} className={blogCurrentPage === page ? 'active' : ''}>{page}</button>
+            ))}
+            <button onClick={() => setBlogCurrentPage((p) => Math.min(p + 1, blogTotalPages))} disabled={blogCurrentPage === blogTotalPages}>Next</button>
+          </div>
+        )}
+
+        {/* Add/Edit Post Modal */}
+        {showAddPost && (
+          <div className="modal-overlay" onClick={() => setShowAddPost(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Create New Post</h3>
+                <button className="modal-close" onClick={() => setShowAddPost(false)}>×</button>
+              </div>
+              <form onSubmit={handleCreatePost} className="modal-body">
+                <div className="form-group">
+                  <label>Title *</label>
+                  <input type="text" required value={newPostForm.title} onChange={(e) => setNewPostForm({ ...newPostForm, title: e.target.value })} className="form-input" placeholder="Enter title" />
+                </div>
+                <div className="form-group">
+                  <label>Content *</label>
+                  <textarea required value={newPostForm.content} onChange={(e) => setNewPostForm({ ...newPostForm, content: e.target.value })} className="form-input" placeholder="Write your article..." rows={8} />
+                </div>
+                <div className="form-group">
+                  <label>Cover Image URL</label>
+                  <input type="url" value={newPostForm.coverImageUrl} onChange={(e) => setNewPostForm({ ...newPostForm, coverImageUrl: e.target.value })} className="form-input" placeholder="https://... or /images/cover.jpg" />
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowAddPost(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Create Post</button>
                 </div>
               </form>
             </div>

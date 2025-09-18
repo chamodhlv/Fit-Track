@@ -8,6 +8,9 @@ import Register from './pages/Register';
 import MemberDashboard from './pages/MemberDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkoutForm from './pages/WorkoutForm';
+import BlogList from './pages/BlogList';
+import BlogDetail from './pages/BlogDetail';
+import BlogEditor from './pages/BlogEditor';
 import './App.css';
 
 // Protected Route Component
@@ -75,6 +78,14 @@ function AppContent() {
             } 
           />
           <Route 
+            path="/blog" 
+            element={<BlogList />} 
+          />
+          <Route 
+            path="/blog/:slug" 
+            element={<BlogDetail />} 
+          />
+          <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute>
@@ -89,6 +100,22 @@ function AppContent() {
                 <AdminDashboard />
               </ProtectedRoute>
             } 
+          />
+          <Route 
+            path="/admin/blogs/new" 
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <BlogEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route 
+            path="/admin/blogs/:id/edit" 
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <BlogEditor />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/workout/new" 
