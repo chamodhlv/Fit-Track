@@ -63,4 +63,17 @@ export const workoutsAPI = {
   getWorkoutStats: () => api.get('/workouts/stats/summary'),
 };
 
+// Blogs API
+export const blogsAPI = {
+  // public read
+  list: (page = 1, limit = 10, tag) => api.get(`/blogs?page=${page}&limit=${limit}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`),
+  getBySlug: (slug) => api.get(`/blogs/${slug}`),
+  // admin
+  adminList: (page = 1, limit = 10) => api.get(`/blogs/admin?page=${page}&limit=${limit}`),
+  getById: (id) => api.get(`/blogs/admin/${id}`),
+  create: (data) => api.post('/blogs', data),
+  update: (id, data) => api.put(`/blogs/${id}`, data),
+  remove: (id) => api.delete(`/blogs/${id}`),
+};
+
 export default api;

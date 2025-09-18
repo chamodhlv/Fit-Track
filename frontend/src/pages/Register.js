@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { User, Mail, Lock, Eye, EyeOff, Scale, Ruler, Target, TrendingUp } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Scale,
+  Ruler,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    age: '',
-    weight: '',
-    height: '',
-    fitnessGoal: '',
-    experienceLevel: ''
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    age: "",
+    weight: "",
+    height: "",
+    fitnessGoal: "",
+    experienceLevel: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -24,37 +34,40 @@ const Register = () => {
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      alert("Passwords do not match");
       return;
     }
 
     setLoading(true);
 
     const result = await register(formData);
-    
+
     if (result.success) {
-      navigate('/dashboard');
+      navigate("/dashboard");
     }
-    
+
     setLoading(false);
   };
 
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title">Join FitCenter Pro</h1>
+        <h1 className="auth-title">Join Fit-Track</h1>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label className="form-label">
-              <User size={16} style={{ marginRight: '8px', display: 'inline' }} />
+              <User
+                size={16}
+                style={{ marginRight: "8px", display: "inline" }}
+              />
               Full Name
             </label>
             <input
@@ -70,7 +83,10 @@ const Register = () => {
 
           <div className="form-group">
             <label className="form-label">
-              <Mail size={16} style={{ marginRight: '8px', display: 'inline' }} />
+              <Mail
+                size={16}
+                style={{ marginRight: "8px", display: "inline" }}
+              />
               Email Address
             </label>
             <input
@@ -87,12 +103,15 @@ const Register = () => {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">
-                <Lock size={16} style={{ marginRight: '8px', display: 'inline' }} />
+                <Lock
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Password
               </label>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: "relative" }}>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
@@ -100,20 +119,20 @@ const Register = () => {
                   placeholder="Enter password"
                   required
                   minLength="6"
-                  style={{ paddingRight: '40px' }}
+                  style={{ paddingRight: "40px" }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#666'
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#666",
                   }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -123,35 +142,42 @@ const Register = () => {
 
             <div className="form-group">
               <label className="form-label">
-                <Lock size={16} style={{ marginRight: '8px', display: 'inline' }} />
+                <Lock
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Confirm Password
               </label>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: "relative" }}>
                 <input
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? "text" : "password"}
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className="form-input"
                   placeholder="Confirm password"
                   required
-                  style={{ paddingRight: '40px' }}
+                  style={{ paddingRight: "40px" }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#666'
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#666",
                   }}
                 >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
                 </button>
               </div>
             </div>
@@ -175,7 +201,10 @@ const Register = () => {
 
             <div className="form-group">
               <label className="form-label">
-                <Scale size={16} style={{ marginRight: '8px', display: 'inline' }} />
+                <Scale
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Weight (kg)
               </label>
               <input
@@ -195,7 +224,10 @@ const Register = () => {
 
           <div className="form-group">
             <label className="form-label">
-              <Ruler size={16} style={{ marginRight: '8px', display: 'inline' }} />
+              <Ruler
+                size={16}
+                style={{ marginRight: "8px", display: "inline" }}
+              />
               Height (cm)
             </label>
             <input
@@ -213,7 +245,10 @@ const Register = () => {
 
           <div className="form-group">
             <label className="form-label">
-              <Target size={16} style={{ marginRight: '8px', display: 'inline' }} />
+              <Target
+                size={16}
+                style={{ marginRight: "8px", display: "inline" }}
+              />
               Fitness Goal
             </label>
             <select
@@ -233,7 +268,10 @@ const Register = () => {
 
           <div className="form-group">
             <label className="form-label">
-              <TrendingUp size={16} style={{ marginRight: '8px', display: 'inline' }} />
+              <TrendingUp
+                size={16}
+                style={{ marginRight: "8px", display: "inline" }}
+              />
               Experience Level
             </label>
             <select
@@ -254,14 +292,16 @@ const Register = () => {
             type="submit"
             className="btn btn-primary"
             disabled={loading}
-            style={{ width: '100%' }}
+            style={{ width: "100%" }}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 
         <div className="auth-link">
-          <p>Already have an account? <Link to="/login">Sign in here</Link></p>
+          <p>
+            Already have an account? <Link to="/login">Sign in here</Link>
+          </p>
         </div>
       </div>
     </div>
