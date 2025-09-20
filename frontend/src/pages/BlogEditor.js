@@ -14,7 +14,17 @@ const BlogEditor = () => {
     title: '',
     content: '',
     coverImageUrl: '',
+    categories: [],
   });
+
+  const availableCategories = [
+    'Strength Training',
+    'Yoga & Flexibility',
+    'Cardio & Endurance',
+    'Weight Loss',
+    'Muscle Building',
+    'Health & Recovery'
+  ];
 
   // Load existing post for edit
   useEffect(() => {
@@ -27,6 +37,7 @@ const BlogEditor = () => {
           title: fromState.title || '',
           content: fromState.content || '',
           coverImageUrl: fromState.coverImageUrl || '',
+          categories: fromState.categories || [],
         });
         setLoading(false);
         return;
@@ -38,6 +49,7 @@ const BlogEditor = () => {
           title: p?.title || '',
           content: p?.content || '',
           coverImageUrl: p?.coverImageUrl || '',
+          categories: p?.categories || [],
         });
       } catch (e) {
         toast.error('Failed to load post');
@@ -48,12 +60,22 @@ const BlogEditor = () => {
     bootstrap();
   }, [id, location.state, mode]);
 
+  const handleCategoryChange = (category) => {
+    setForm(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category]
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
       title: form.title,
       content: form.content,
       coverImageUrl: form.coverImageUrl || undefined,
+      categories: form.categories,
     };
     try {
       if (mode === 'edit') {
@@ -134,7 +156,23 @@ const BlogEditor = () => {
           />
         ) : null}
 
-        
+        <div className="form-group">
+          <label>Categories (optional)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginTop: '8px' }}>
+            {availableCategories.map((category) => (
+              <label key={category} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: form.categories.includes(category) ? '#e3f2fd' : 'transparent' }}>
+                <input
+                  type="checkbox"
+                  checked={form.categories.includes(category)}
+                  onChange={() => handleCategoryChange(category)}
+                  style={{ marginRight: '8px' }}
+                />
+                {category}
+              </label>
+            ))}
+          </div>
+          {/* Categories are optional */}
+        </div>
 
         <div className="modal-footer" style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="btn btn-secondary" onClick={() => navigate('/admin')}>Cancel</button>

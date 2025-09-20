@@ -40,9 +40,18 @@ const AdminDashboard = () => {
   const [blogCurrentPage, setBlogCurrentPage] = useState(1);
   const [blogTotalPages, setBlogTotalPages] = useState(1);
   const [editingBlogId, setEditingBlogId] = useState(null);
-  const [blogEditForm, setBlogEditForm] = useState({ title: '', content: '', coverImageUrl: '' });
+  const [blogEditForm, setBlogEditForm] = useState({ title: '', content: '', coverImageUrl: '', categories: [] });
   const [showAddPost, setShowAddPost] = useState(false);
-  const [newPostForm, setNewPostForm] = useState({ title: '', content: '', coverImageUrl: '' });
+  const [newPostForm, setNewPostForm] = useState({ title: '', content: '', coverImageUrl: '', categories: [] });
+
+  const availableCategories = [
+    'Strength Training',
+    'Yoga & Flexibility',
+    'Cardio & Endurance',
+    'Weight Loss',
+    'Muscle Building',
+    'Health & Recovery'
+  ];
 
   useEffect(() => {
     fetchUsers();
@@ -180,6 +189,7 @@ const AdminDashboard = () => {
         title: blogEditForm.title,
         content: blogEditForm.content,
         coverImageUrl: blogEditForm.coverImageUrl || undefined,
+        categories: blogEditForm.categories,
       };
       await blogsAPI.update(postId, payload);
       toast.success('Post updated successfully');
@@ -216,11 +226,12 @@ const AdminDashboard = () => {
         title: newPostForm.title,
         content: newPostForm.content,
         coverImageUrl: newPostForm.coverImageUrl || undefined,
+        categories: newPostForm.categories,
       };
       await blogsAPI.create(payload);
       toast.success('Post created successfully');
       setShowAddPost(false);
-      setNewPostForm({ title: '', content: '', coverImageUrl: '' });
+      setNewPostForm({ title: '', content: '', coverImageUrl: '', categories: [] });
       // refresh list
       if (blogCurrentPage !== 1) setBlogCurrentPage(1);
       fetchBlogPosts();
@@ -784,6 +795,7 @@ const AdminDashboard = () => {
               <thead>
                 <tr>
                   <th>Title</th>
+                  <th>Categories</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
@@ -802,6 +814,29 @@ const AdminDashboard = () => {
                         />
                       ) : (
                         <div style={{ fontWeight: 600 }}>{post.title}</div>
+                      )}
+                    </td>
+                    <td>
+                      {post.categories && post.categories.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {post.categories.map((category, index) => (
+                            <span
+                              key={index}
+                              style={{
+                                display: 'inline-block',
+                                backgroundColor: '#e3f2fd',
+                                color: '#1976d2',
+                                padding: '2px 6px',
+                                borderRadius: '8px',
+                                fontSize: '11px'
+                              }}
+                            >
+                              {category}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '12px' }}>No categories</span>
                       )}
                     </td>
                     <td>{formatDate(post.createdAt)}</td>
@@ -883,6 +918,29 @@ const AdminDashboard = () => {
                 <div className="form-group">
                   <label>Cover Image URL</label>
                   <input type="url" value={newPostForm.coverImageUrl} onChange={(e) => setNewPostForm({ ...newPostForm, coverImageUrl: e.target.value })} className="form-input" placeholder="https://... or /images/cover.jpg" />
+                </div>
+                <div className="form-group">
+                  <label>Categories (optional)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                    {availableCategories.map((category) => (
+                      <label key={category} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '6px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: newPostForm.categories.includes(category) ? '#e3f2fd' : 'transparent', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={newPostForm.categories.includes(category)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewPostForm({ ...newPostForm, categories: [...newPostForm.categories, category] });
+                            } else {
+                              setNewPostForm({ ...newPostForm, categories: newPostForm.categories.filter(c => c !== category) });
+                            }
+                          }}
+                          style={{ marginRight: '6px' }}
+                        />
+                        {category}
+                      </label>
+                    ))}
+                  </div>
+                  {/* Categories are optional */}
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={() => setShowAddPost(false)}>Cancel</button>

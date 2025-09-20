@@ -7,6 +7,17 @@ const BlogPostSchema = new mongoose.Schema(
     slug: { type: String, unique: true, index: true },
     content: { type: String, required: true },
     tags: [{ type: String, trim: true }],
+    categories: [{
+      type: String,
+      enum: [
+        'Strength Training',
+        'Yoga & Flexibility', 
+        'Cardio & Endurance',
+        'Weight Loss',
+        'Muscle Building',
+        'Health & Recovery'
+      ]
+    }],
     coverImageUrl: { type: String },
     published: { type: Boolean, default: true },
     publishedAt: { type: Date },
