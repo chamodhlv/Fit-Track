@@ -12,7 +12,7 @@ const generateToken = (userId) => {
 };
 
 // @route   POST /api/auth/register
-// @desc    Register a new user
+// @desc    Register a new member
 // @access  Public
 router.post('/register', [
   body('fullName').trim().isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
@@ -84,6 +84,92 @@ router.post('/register', [
   }
 });
 
+// @route   POST /api/auth/register-trainer
+// @desc    Register a new trainer (pending approval)
+// @access  Public
+router.post('/register-trainer', [
+  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
+  body('email').isEmail().withMessage('Please enter a valid email'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('Password confirmation does not match password');
+    }
+    return true;
+  }),
+  body('bio').trim().isLength({ min: 10 }).withMessage('Bio must be at least 10 characters'),
+  body('specialties').isArray({ min: 1 }).withMessage('At least one specialty is required'),
+  body('specialties.*').isIn(['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding']).withMessage('Invalid specialty'),
+  body('sessionRate').isFloat({ min: 0 }).withMessage('Session rate must be a positive number'),
+  body('sessionCapacity').isInt({ min: 1 }).withMessage('Session capacity must be at least 1'),
+  body('availability.days').isArray({ min: 1 }).withMessage('At least one available day is required'),
+  body('availability.days.*').isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
+  body('availability.timeSlots').isArray({ min: 1 }).withMessage('At least one time slot is required'),
+  body('profileImage').optional().isString().withMessage('Profile image must be a string')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { 
+      fullName, 
+      email, 
+      password, 
+      bio, 
+      specialties, 
+      sessionRate,
+      sessionCapacity,
+      availability, 
+      profileImage 
+    } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+
+    // Create new trainer (pending approval)
+    const trainer = new User({
+      fullName,
+      email,
+      password,
+      role: 'trainer',
+      bio,
+      specialties,
+      sessionRate,
+      sessionCapacity,
+      availability,
+      profileImage: profileImage || '',
+      approvalStatus: 'pending',
+      // Set dummy values for required member fields
+      age: 25,
+      weight: 70,
+      height: 170,
+      fitnessGoal: 'endurance',
+      experienceLevel: 'advanced'
+    });
+
+    await trainer.save();
+
+    res.status(201).json({
+      message: 'Trainer registration submitted successfully. Your registration is pending for 24 hours until admin approval. If you cannot log in with your credentials after 24 hours, your registration has been rejected by the admin panel.',
+      trainer: {
+        id: trainer._id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        role: trainer.role,
+        approvalStatus: trainer.approvalStatus
+      }
+    });
+  } catch (error) {
+    console.error('Trainer registration error:', error);
+    res.status(500).json({ message: 'Server error during trainer registration' });
+  }
+});
+
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
@@ -108,6 +194,15 @@ router.post('/login', [
     // Check if user is active
     if (user.isActive === false) {
       return res.status(400).json({ message: 'Account is deactivated' });
+    }
+
+    // Check trainer approval status
+    if (user.role === 'trainer' && user.approvalStatus !== 'approved') {
+      if (user.approvalStatus === 'pending') {
+        return res.status(400).json({ message: 'Your trainer registration is still pending approval. Please wait for admin approval.' });
+      } else if (user.approvalStatus === 'rejected') {
+        return res.status(400).json({ message: 'Your trainer registration has been rejected by the admin.' });
+      }
     }
 
     // Check password
@@ -142,17 +237,37 @@ router.post('/login', [
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    res.json({
+    const base = {
+      id: req.user._id,
+      fullName: req.user.fullName,
+      email: req.user.email,
+      role: req.user.role,
+    };
+
+    if (req.user.role === 'trainer') {
+      return res.json({
+        user: {
+          ...base,
+          bio: req.user.bio,
+          specialties: req.user.specialties,
+          sessionRate: req.user.sessionRate,
+          sessionCapacity: req.user.sessionCapacity,
+          availability: req.user.availability,
+          profileImage: req.user.profileImage,
+          approvalStatus: req.user.approvalStatus,
+        }
+      });
+    }
+
+    // member/admin fallback (member profile fields)
+    return res.json({
       user: {
-        id: req.user._id,
-        fullName: req.user.fullName,
-        email: req.user.email,
-        role: req.user.role,
+        ...base,
         age: req.user.age,
         weight: req.user.weight,
         height: req.user.height,
         fitnessGoal: req.user.fitnessGoal,
-        experienceLevel: req.user.experienceLevel
+        experienceLevel: req.user.experienceLevel,
       }
     });
   } catch (error) {

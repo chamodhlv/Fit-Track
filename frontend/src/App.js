@@ -5,8 +5,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import TrainerRegister from './pages/TrainerRegister';
 import MemberDashboard from './pages/MemberDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import TrainerDashboard from './pages/TrainerDashboard';
 import WorkoutForm from './pages/WorkoutForm';
 import BlogList from './pages/BlogList';
 import BlogDetail from './pages/BlogDetail';
@@ -14,8 +16,8 @@ import BlogEditor from './pages/BlogEditor';
 import './App.css';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+const ProtectedRoute = ({ children, adminOnly = false, trainerOnly = false }) => {
+  const { isAuthenticated, isAdmin, user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -33,12 +35,16 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if (trainerOnly && user?.role !== 'trainer') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
 };
 
 // Public Route Component (redirect if authenticated)
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -49,7 +55,13 @@ const PublicRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />;
+    if (isAdmin) {
+      return <Navigate to="/admin" replace />;
+    } else if (user?.role === 'trainer') {
+      return <Navigate to="/trainer-dashboard" replace />;
+    } else {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return children;
@@ -78,6 +90,14 @@ function AppContent() {
             } 
           />
           <Route 
+            path="/register-trainer" 
+            element={
+              <PublicRoute>
+                <TrainerRegister />
+              </PublicRoute>
+            } 
+          />
+          <Route 
             path="/blog" 
             element={<BlogList />} 
           />
@@ -98,6 +118,14 @@ function AppContent() {
             element={
               <ProtectedRoute adminOnly={true}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/trainer-dashboard" 
+            element={
+              <ProtectedRoute trainerOnly={true}>
+                <TrainerDashboard />
               </ProtectedRoute>
             } 
           />

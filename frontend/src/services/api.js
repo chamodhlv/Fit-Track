@@ -61,6 +61,10 @@ export const workoutsAPI = {
   updateWorkout: (id, workoutData) => api.put(`/workouts/${id}`, workoutData),
   deleteWorkout: (id) => api.delete(`/workouts/${id}`),
   getWorkoutStats: () => api.get('/workouts/stats/summary'),
+  markCompleted: (id, completedAt) => api.patch(`/workouts/${id}/complete`, completedAt ? { completedAt } : {}),
+  uncomplete: (id, completedAt) => api.patch(`/workouts/${id}/uncomplete`, { completedAt }),
+  getHistoryCalendar: (year, month) => api.get(`/workouts/history/calendar?year=${year}&month=${month}`),
+  getHistoryByDate: (date) => api.get(`/workouts/history/by-date?date=${encodeURIComponent(date)}`),
 };
 
 // Blogs API

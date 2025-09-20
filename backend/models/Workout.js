@@ -62,6 +62,23 @@ const workoutSchema = new mongoose.Schema({
     type: String,
     enum: ['strength', 'cardio', 'flexibility', 'mixed'],
     default: 'mixed'
+  },
+  // Completion fields for workout history and calendar
+  completed: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  completedAt: {
+    type: Date,
+    default: null,
+    index: true
+  },
+  // Multiple completion support: each entry is a Date when this workout was completed
+  completions: {
+    type: [Date],
+    default: [],
+    index: true
   }
 }, {
   timestamps: true

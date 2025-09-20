@@ -28,7 +28,13 @@ const Login = () => {
     
     if (result.success) {
       const role = result.user?.role;
-      navigate(role === 'admin' ? '/admin' : '/dashboard');
+      if (role === 'admin') {
+        navigate('/admin');
+      } else if (role === 'trainer') {
+        navigate('/trainer-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     }
     
     setLoading(false);

@@ -49,12 +49,59 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['member', 'admin'],
+    enum: ['member', 'admin', 'trainer'],
     default: 'member'
   },
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Trainer-specific fields
+  bio: {
+    type: String,
+    required: function() { return this.role === 'trainer'; }
+  },
+  specialties: [{
+    type: String,
+    enum: ['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'],
+    required: function() { return this.role === 'trainer'; }
+  }],
+  sessionRate: {
+    type: Number,
+    required: function() { return this.role === 'trainer'; },
+    min: 0
+  },
+  sessionCapacity: {
+    type: Number,
+    required: function() { return this.role === 'trainer'; },
+    min: 1,
+    default: 1
+  },
+  availability: {
+    days: [{
+      type: String,
+      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    }],
+    timeSlots: [{
+      start: String,
+      end: String
+    }]
+  },
+  profileImage: {
+    type: String,
+    default: ''
+  },
+  // Approval status for trainers
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: function() { return this.role === 'trainer' ? 'pending' : 'approved'; }
+  },
+  approvedAt: {
+    type: Date
+  },
+  rejectedAt: {
+    type: Date
   }
 }, {
   timestamps: true

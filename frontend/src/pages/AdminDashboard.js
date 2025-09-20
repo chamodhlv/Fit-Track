@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, blogsAPI } from '../services/api';
-import { Users, Edit, Trash2, UserPlus, FileText, Plus } from 'lucide-react';
+import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
@@ -27,6 +27,13 @@ const AdminDashboard = () => {
     experienceLevel: 'beginner'
   });
 
+  // Trainer approval state
+  const [trainerLoading, setTrainerLoading] = useState(true);
+  const [pendingTrainers, setPendingTrainers] = useState([]);
+  const [trainerCurrentPage, setTrainerCurrentPage] = useState(1);
+  const [trainerTotalPages, setTrainerTotalPages] = useState(1);
+  const [processingTrainer, setProcessingTrainer] = useState(null);
+
   // Blog management state
   const [blogLoading, setBlogLoading] = useState(true);
   const [blogPosts, setBlogPosts] = useState([]);
@@ -40,6 +47,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchUsers();
   }, [currentPage]);
+
+  useEffect(() => {
+    fetchPendingTrainers();
+  }, [trainerCurrentPage]);
 
   useEffect(() => {
     fetchBlogPosts();
@@ -58,6 +69,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchPendingTrainers = async () => {
+    try {
+      setTrainerLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/users/trainers/pending?page=${trainerCurrentPage}&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setPendingTrainers(data.trainers || []);
+        setTrainerTotalPages(data.totalPages || 1);
+      } else {
+        toast.error('Failed to fetch pending trainers');
+      }
+    } catch (error) {
+      toast.error('Failed to fetch pending trainers');
+    } finally {
+      setTrainerLoading(false);
+    }
+  };
+
   // Blog posts: list
   const fetchBlogPosts = async () => {
     try {
@@ -69,6 +104,66 @@ const AdminDashboard = () => {
       toast.error('Failed to fetch blog posts');
     } finally {
       setBlogLoading(false);
+    }
+  };
+
+  const handleApproveTrainer = async (trainerId) => {
+    if (processingTrainer) return;
+    
+    setProcessingTrainer(trainerId);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/users/trainers/${trainerId}/approve`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success('Trainer approved successfully');
+        fetchPendingTrainers(); // Refresh the list
+      } else {
+        toast.error(data.message || 'Failed to approve trainer');
+      }
+    } catch (error) {
+      toast.error('Failed to approve trainer');
+    } finally {
+      setProcessingTrainer(null);
+    }
+  };
+
+  const handleRejectTrainer = async (trainerId) => {
+    if (processingTrainer) return;
+    
+    if (!window.confirm('Are you sure you want to reject this trainer application? This action cannot be undone.')) {
+      return;
+    }
+    
+    setProcessingTrainer(trainerId);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/users/trainers/${trainerId}/reject`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success('Trainer application rejected');
+        fetchPendingTrainers(); // Refresh the list
+      } else {
+        toast.error(data.message || 'Failed to reject trainer');
+      }
+    } catch (error) {
+      toast.error('Failed to reject trainer');
+    } finally {
+      setProcessingTrainer(null);
     }
   };
 
@@ -521,6 +616,146 @@ const AdminDashboard = () => {
                 </div>
               </form>
             </div>
+          </div>
+        )}
+
+        {/* Trainer Approval Section */}
+        <div className="section-header" style={{ marginTop: '2rem' }}>
+          <h2 className="section-title">
+            <UserCheck size={24} style={{ marginRight: '8px' }} />
+            Trainer Approval
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+            <Clock size={16} />
+            {pendingTrainers.length} pending applications
+          </div>
+        </div>
+
+        {trainerLoading ? (
+          <div className="loading">
+            <div className="spinner"></div>
+          </div>
+        ) : pendingTrainers.length === 0 ? (
+          <div className="card text-center">
+            <UserCheck size={48} style={{ margin: '0 auto 1rem', color: '#ccc' }} />
+            <h3>No pending trainer applications</h3>
+            <p>All trainer applications have been processed.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Trainer</th>
+                  <th>Contact</th>
+                  <th>Specialties</th>
+                  <th>Rate</th>
+                  <th>Applied</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingTrainers.map((trainer) => (
+                  <tr key={trainer._id}>
+                    <td>
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{trainer.fullName}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                          {trainer.bio?.substring(0, 60)}...
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div>{trainer.email}</div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {trainer.specialties?.map((specialty, index) => (
+                          <span 
+                            key={index}
+                            style={{
+                              background: '#e3f2fd',
+                              color: '#1976d2',
+                              padding: '0.125rem 0.375rem',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: '500'
+                            }}
+                          >
+                            {specialty}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: '600' }}>${trainer.sessionRate}/hr</div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '0.9rem' }}>
+                        {formatDate(trainer.createdAt)}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={() => handleApproveTrainer(trainer._id)}
+                          className="btn btn-success"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          disabled={processingTrainer === trainer._id}
+                          title="Approve Trainer"
+                        >
+                          {processingTrainer === trainer._id ? (
+                            'Processing...'
+                          ) : (
+                            <>
+                              <UserCheck size={12} style={{ marginRight: '2px' }} />
+                              Approve
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRejectTrainer(trainer._id)}
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          disabled={processingTrainer === trainer._id}
+                          title="Reject Trainer"
+                        >
+                          <UserX size={12} style={{ marginRight: '2px' }} />
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Trainer Pagination */}
+        {trainerTotalPages > 1 && (
+          <div className="pagination">
+            <button
+              onClick={() => setTrainerCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={trainerCurrentPage === 1}
+            >
+              Previous
+            </button>
+            {Array.from({ length: trainerTotalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setTrainerCurrentPage(page)}
+                className={trainerCurrentPage === page ? 'active' : ''}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setTrainerCurrentPage(prev => Math.min(prev + 1, trainerTotalPages))}
+              disabled={trainerCurrentPage === trainerTotalPages}
+            >
+              Next
+            </button>
           </div>
         )}
 

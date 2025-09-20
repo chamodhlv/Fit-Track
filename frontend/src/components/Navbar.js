@@ -5,6 +5,7 @@ import { User, LogOut, Dumbbell } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
+  const isTrainer = user?.role === 'trainer';
 
   return (
     <nav className="navbar">
@@ -18,6 +19,8 @@ const Navbar = () => {
           <div className="navbar-nav">
             {isAdmin ? (
               <Link to="/admin" className="nav-link">Admin Dashboard</Link>
+            ) : isTrainer ? (
+              <Link to="/trainer-dashboard" className="nav-link">Trainer Dashboard</Link>
             ) : (
               <Link to="/dashboard" className="nav-link">Member Dashboard</Link>
             )}
@@ -25,7 +28,7 @@ const Navbar = () => {
             <div className="user-info">
               <User size={20} />
               <span className="user-name">
-                {user?.fullName} {isAdmin && '(Admin)'}
+                {user?.fullName} {isAdmin && '(Admin)'} {isTrainer && '(Trainer)'}
               </span>
             </div>
             <button onClick={logout} className="logout-btn">
@@ -38,6 +41,16 @@ const Navbar = () => {
             <Link to="/blog" className="nav-link">Blog</Link>
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/register" className="nav-link">Register</Link>
+            <Link to="/register-trainer" className="nav-link" style={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontWeight: '500'
+            }}>
+              Register as Trainer
+            </Link>
           </div>
         )}
       </div>
