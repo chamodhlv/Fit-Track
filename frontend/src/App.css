@@ -592,3 +592,170 @@
     overflow-x: auto;
   }
 }
+
+/* Trainer-specific styles */
+.specialty-tag {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.day-tag {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.time-slot {
+  background: #f5f5f5;
+  padding: 0.5rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #333;
+}
+
+.profile-image-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.profile-value {
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin: 0;
+  color: #333;
+}
+
+.form-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.form-section h3 {
+  margin-bottom: 1rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Trainer Dashboard Redesign */
+.trainer-hero {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+
+
+.trainer-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+.trainer-subtitle {
+  margin: 0 0 0.75rem 0;
+  color: #4b5563;
+}
+
+.trainer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trainer-hero-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.trainer-hero-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #fff;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.trainer-hero-avatar.placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 4px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.trainer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.25rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  padding: 1rem;
+}
+
+.trainer-summary .summary-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.trainer-summary .summary-item {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-weight: 600;
+  color: #111827;
+}
+
+.summary-section {
+  margin-top: 1rem;
+}
+
