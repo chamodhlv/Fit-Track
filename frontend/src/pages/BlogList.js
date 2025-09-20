@@ -7,12 +7,24 @@ const BlogList = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  // simplified UI: no tag filter
+  const [selectedCategory, setSelectedCategory] = useState('');
+  
+  const availableCategories = [
+    'Strength Training',
+    'Yoga & Flexibility',
+    'Cardio & Endurance',
+    'Weight Loss',
+    'Muscle Building',
+    'Health & Recovery'
+  ];
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await blogsAPI.list(currentPage, 10);
+        const filters = {};
+        if (selectedCategory) filters.category = selectedCategory;
+        
+        const res = await blogsAPI.list(currentPage, 10, filters);
         setPosts(res.data.posts || []);
         setTotalPages(res.data.totalPages || 1);
       } catch (e) {
@@ -22,7 +34,12 @@ const BlogList = () => {
       }
     };
     fetchPosts();
-  }, [currentPage]);
+  }, [currentPage, selectedCategory]);
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category === selectedCategory ? '' : category);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
 
   if (loading) {
     return (
@@ -36,6 +53,54 @@ const BlogList = () => {
     <div className="container">
       <div className="section-header">
         <h2 className="section-title">Blog</h2>
+      </div>
+
+      {/* Filter Section (Category only) */}
+      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <label style={{ display: 'block', fontWeight: 'bold', margin: 0 }}>Filter by Category:</label>
+          {selectedCategory && (
+            <button 
+              type="button" 
+              onClick={() => {
+                setSelectedCategory('');
+                setCurrentPage(1);
+              }}
+              className="btn btn-secondary"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {/* All category */}
+          <button
+            onClick={() => handleCategoryChange('')}
+            className={`btn ${selectedCategory === '' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ 
+              fontSize: '14px', 
+              padding: '6px 12px',
+              border: selectedCategory === '' ? '2px solid #007bff' : '1px solid #ddd'
+            }}
+          >
+            All
+          </button>
+
+          {availableCategories.map((category) => (
+            <button
+              key={category}
+              onClick={() => handleCategoryChange(category)}
+              className={`btn ${selectedCategory === category ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ 
+                fontSize: '14px', 
+                padding: '6px 12px',
+                border: selectedCategory === category ? '2px solid #007bff' : '1px solid #ddd'
+              }}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
       </div>
 
 
@@ -71,6 +136,27 @@ const BlogList = () => {
                 <div className="blog-card-body">
                   <h3 className="blog-card-title">{p.title}</h3>
                   {excerpt && <p className="blog-card-excerpt">{excerpt}</p>}
+                  {p.categories && p.categories.length > 0 && (
+                    <div style={{ marginTop: '8px' }}>
+                      {p.categories.map((category, index) => (
+                        <span
+                          key={index}
+                          style={{
+                            display: 'inline-block',
+                            backgroundColor: '#e3f2fd',
+                            color: '#1976d2',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            marginRight: '4px',
+                            marginBottom: '4px'
+                          }}
+                        >
+                          {category}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Link>
             );
@@ -98,3 +184,4 @@ const BlogList = () => {
 };
 
 export default BlogList;
+

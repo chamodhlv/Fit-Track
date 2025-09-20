@@ -5,16 +5,22 @@ const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Public: list published blog posts with pagination and optional tag search
+// Public: list published blog posts with pagination and category/tag filtering
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     const tag = req.query.tag;
+    const category = req.query.category;
 
     const filter = { published: true };
+    
+    // Tag filtering (existing functionality)
     if (tag) filter.tags = { $in: [tag] };
+    
+    // Category filtering
+    if (category) filter.categories = { $in: [category] };
 
     const posts = await BlogPost.find(filter)
       .sort({ publishedAt: -1, createdAt: -1 })
@@ -96,6 +102,7 @@ router.post(
     body('title').trim().isLength({ min: 3 }).withMessage('Title is required'),
     body('content').trim().isLength({ min: 10 }).withMessage('Content is required'),
     body('tags').optional().isArray().withMessage('Tags must be an array of strings'),
+    body('categories').optional().isArray().withMessage('Categories must be an array of strings'),
     body('coverImageUrl').optional().isURL().withMessage('Cover image must be a valid URL'),
     body('published').optional().isBoolean(),
   ],
@@ -106,12 +113,13 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { title, content, tags = [], coverImageUrl, published = true } = req.body;
+      const { title, content, tags = [], categories = [], coverImageUrl, published = true } = req.body;
 
       const post = new BlogPost({
         title,
         content,
         tags,
+        categories,
         coverImageUrl,
         published,
         author: req.user._id,
@@ -137,6 +145,7 @@ router.put(
     body('title').optional().trim().isLength({ min: 3 }),
     body('content').optional().trim().isLength({ min: 10 }),
     body('tags').optional().isArray(),
+    body('categories').optional().isArray().withMessage('Categories must be an array of strings'),
     body('coverImageUrl').optional().isURL(),
     body('published').optional().isBoolean(),
   ],
@@ -150,10 +159,11 @@ router.put(
       const post = await BlogPost.findById(req.params.id);
       if (!post) return res.status(404).json({ message: 'Post not found' });
 
-      const { title, content, tags, coverImageUrl, published } = req.body;
+      const { title, content, tags, categories, coverImageUrl, published } = req.body;
       if (title !== undefined) post.title = title;
       if (content !== undefined) post.content = content;
       if (tags !== undefined) post.tags = tags;
+      if (categories !== undefined) post.categories = categories;
       if (coverImageUrl !== undefined) post.coverImageUrl = coverImageUrl;
       if (published !== undefined) {
         post.published = published;

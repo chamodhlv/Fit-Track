@@ -1,12 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { blogsAPI } from '../services/api';
+import Comments from '../components/Comments';
 
 const BlogDetail = () => {
   const { slug } = useParams();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [user, setUser] = useState(null);
+
+  // Get user from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -59,7 +73,37 @@ const BlogDetail = () => {
           />
         );
       })()}
-      <div className="card" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{post.content}</div>
+      
+      {/* Categories */}
+      {post.categories && post.categories.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <strong>Categories: </strong>
+          {post.categories.map((category, index) => (
+            <span
+              key={index}
+              style={{
+                display: 'inline-block',
+                backgroundColor: '#e3f2fd',
+                color: '#1976d2',
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontSize: '14px',
+                marginRight: '8px',
+                marginBottom: '4px'
+              }}
+            >
+              {category}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="card" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, marginBottom: '32px' }}>
+        {post.content}
+      </div>
+
+      {/* Comments Section */}
+      <Comments blogId={post._id} user={user} />
     </div>
   );
 };

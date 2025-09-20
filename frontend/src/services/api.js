@@ -70,7 +70,14 @@ export const workoutsAPI = {
 // Blogs API
 export const blogsAPI = {
   // public read
-  list: (page = 1, limit = 10, tag) => api.get(`/blogs?page=${page}&limit=${limit}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`),
+  list: (page = 1, limit = 10, filters = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (filters.tag) params.append('tag', filters.tag);
+    if (filters.category) params.append('category', filters.category);
+    return api.get(`/blogs?${params.toString()}`);
+  },
   getBySlug: (slug) => api.get(`/blogs/${slug}`),
   // admin
   adminList: (page = 1, limit = 10) => api.get(`/blogs/admin?page=${page}&limit=${limit}`),
@@ -78,6 +85,14 @@ export const blogsAPI = {
   create: (data) => api.post('/blogs', data),
   update: (id, data) => api.put(`/blogs/${id}`, data),
   remove: (id) => api.delete(`/blogs/${id}`),
+};
+
+// Comments API
+export const commentsAPI = {
+  getComments: (blogId, page = 1, limit = 20) => api.get(`/comments/blog/${blogId}?page=${page}&limit=${limit}`),
+  createComment: (data) => api.post('/comments', data),
+  updateComment: (id, data) => api.put(`/comments/${id}`, data),
+  deleteComment: (id) => api.delete(`/comments/${id}`),
 };
 
 export default api;
