@@ -19,7 +19,7 @@ const BlogPostSchema = new mongoose.Schema(
       ]
     }],
     coverImageUrl: { type: String },
-    published: { type: Boolean, default: true },
+    status: { type: String, enum: ['draft', 'published'], default: 'draft' },
     publishedAt: { type: Date },
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
@@ -31,8 +31,10 @@ BlogPostSchema.pre('save', function (next) {
     const baseSlug = slugify(this.title, { lower: true, strict: true });
     this.slug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
   }
-  if (this.published && !this.publishedAt) {
+  if (this.status === 'published' && !this.publishedAt) {
     this.publishedAt = new Date();
+  } else if (this.status === 'draft') {
+    this.publishedAt = null;
   }
   next();
 });

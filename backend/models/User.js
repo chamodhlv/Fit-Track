@@ -71,17 +71,7 @@ const userSchema = new mongoose.Schema({
     required: function() { return this.role === 'trainer'; },
     min: 0
   },
-  sessionCapacity: {
-    type: Number,
-    required: function() { return this.role === 'trainer'; },
-    min: 1,
-    default: 1
-  },
   availability: {
-    days: [{
-      type: String,
-      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    }],
     timeSlots: [{
       start: String,
       end: String

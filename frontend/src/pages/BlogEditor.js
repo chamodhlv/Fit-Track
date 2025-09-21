@@ -8,6 +8,7 @@ const BlogEditor = () => {
   const location = useLocation();
   const { id } = useParams();
   const mode = useMemo(() => (id ? 'edit' : 'create'), [id]);
+  const isTrainerRoute = useMemo(() => location.pathname.startsWith('/trainer/'), [location.pathname]);
 
   const [loading, setLoading] = useState(mode === 'edit');
   const [form, setForm] = useState({
@@ -43,7 +44,7 @@ const BlogEditor = () => {
         return;
       }
       try {
-        const res = await blogsAPI.getById(id);
+        const res = isTrainerRoute ? await blogsAPI.getMineById(id) : await blogsAPI.getById(id);
         const p = res.data?.post;
         setForm({
           title: p?.title || '',
@@ -58,7 +59,7 @@ const BlogEditor = () => {
       }
     };
     bootstrap();
-  }, [id, location.state, mode]);
+  }, [id, location.state, mode, isTrainerRoute]);
 
   const handleCategoryChange = (category) => {
     setForm(prev => ({
@@ -85,7 +86,7 @@ const BlogEditor = () => {
         await blogsAPI.create(payload);
         toast.success('Post created');
       }
-      navigate('/admin');
+      navigate(isTrainerRoute ? '/trainer-dashboard' : '/admin');
     } catch (error) {
       const errs = error?.response?.data?.errors;
       if (Array.isArray(errs) && errs.length) {
@@ -108,7 +109,7 @@ const BlogEditor = () => {
     <div className="container">
       <div className="section-header">
         <h2 className="section-title">{mode === 'edit' ? 'Edit Post' : 'Create Post'}</h2>
-        <Link to="/admin" className="btn btn-secondary">Back</Link>
+        <Link to={isTrainerRoute ? '/trainer-dashboard' : '/admin'} className="btn btn-secondary">Back</Link>
       </div>
 
       <form onSubmit={handleSubmit} className="card" style={{ padding: 16 }}>
@@ -179,7 +180,7 @@ const BlogEditor = () => {
         </div>
 
         <div className="modal-footer" style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/admin')}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate(isTrainerRoute ? '/trainer-dashboard' : '/admin')}>Cancel</button>
           <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : 'Create Post'}</button>
         </div>
       </form>

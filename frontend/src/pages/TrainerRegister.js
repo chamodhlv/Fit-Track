@@ -25,9 +25,7 @@ const TrainerRegister = () => {
     bio: "",
     specialties: [],
     sessionRate: "",
-    sessionCapacity: "1",
     availability: {
-      days: [],
       timeSlots: [{ start: "", end: "" }]
     },
     profileImage: "",
@@ -44,15 +42,6 @@ const TrainerRegister = () => {
     'Bodybuilding'
   ];
 
-  const dayOptions = [
-    'Monday',
-    'Tuesday', 
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday'
-  ];
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -67,24 +56,6 @@ const TrainerRegister = () => {
         setFormData(prev => ({
           ...prev,
           specialties: prev.specialties.filter(s => s !== value)
-        }));
-      }
-    } else if (name === 'availableDays') {
-      if (checked) {
-        setFormData(prev => ({
-          ...prev,
-          availability: {
-            ...prev.availability,
-            days: [...prev.availability.days, value]
-          }
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          availability: {
-            ...prev.availability,
-            days: prev.availability.days.filter(d => d !== value)
-          }
         }));
       }
     } else {
@@ -138,20 +109,12 @@ const TrainerRegister = () => {
       return;
     }
 
-    if (formData.availability.days.length === 0) {
-      toast.error("Please select at least one available day");
-      return;
-    }
 
     if (formData.availability.timeSlots.some(slot => !slot.start || !slot.end)) {
       toast.error("Please fill in all time slots");
       return;
     }
 
-    if (!formData.sessionCapacity || parseInt(formData.sessionCapacity, 10) < 1) {
-      toast.error("Please enter how many trainees you can handle per session (minimum 1)");
-      return;
-    }
 
     setLoading(true);
 
@@ -365,22 +328,6 @@ const TrainerRegister = () => {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                Max Trainees per Session
-              </label>
-              <input
-                type="number"
-                name="sessionCapacity"
-                value={formData.sessionCapacity}
-                onChange={handleChange}
-                className="form-input"
-                placeholder="How many clients can you handle per session?"
-                required
-                min="1"
-                step="1"
-              />
-            </div>
 
             <div className="form-group">
               <label className="form-label">
@@ -405,27 +352,6 @@ const TrainerRegister = () => {
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={{ marginBottom: '1rem', color: '#333' }}>Availability</h3>
             
-            <div className="form-group">
-              <label className="form-label">
-                <Calendar size={16} style={{ marginRight: "8px", display: "inline" }} />
-                Available Days
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-                {dayOptions.map(day => (
-                  <label key={day} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      name="availableDays"
-                      value={day}
-                      checked={formData.availability.days.includes(day)}
-                      onChange={handleChange}
-                      style={{ marginRight: '0.5rem' }}
-                    />
-                    {day}
-                  </label>
-                ))}
-              </div>
-            </div>
 
             <div className="form-group">
               <label className="form-label">

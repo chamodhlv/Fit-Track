@@ -9,12 +9,19 @@ import {
   Clock,
   Camera,
   FileText,
-  Activity
+  Activity,
+  BookOpen,
+  ChefHat,
+  Plus,
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { recipesAPI, blogsAPI, bookingsAPI } from '../services/api';
 
 const TrainerDashboard = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({
     fullName: '',
@@ -22,13 +29,30 @@ const TrainerDashboard = () => {
     bio: '',
     specialties: [],
     sessionRate: '',
-    sessionCapacity: '',
     availability: {
-      days: [],
       timeSlots: [{ start: '', end: '' }]
     },
     profileImage: ''
   });
+
+  // State for recipe and blog management
+  const [recipes, setRecipes] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [recipeLoading, setRecipeLoading] = useState(true);
+  const [blogLoading, setBlogLoading] = useState(true);
+  const [recipeCurrentPage, setRecipeCurrentPage] = useState(1);
+  const [recipeTotalPages, setRecipeTotalPages] = useState(1);
+  const [blogCurrentPage, setBlogCurrentPage] = useState(1);
+  const [blogTotalPages, setBlogTotalPages] = useState(1);
+
+  // My Clients (Bookings) - calendar and list
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth() + 1); // 1-12
+  const [calendarCounts, setCalendarCounts] = useState({});
+  const [selectedDate, setSelectedDate] = useState(''); // YYYY-MM-DD
+  const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
 
   const specialtyOptions = [
     'Weight Loss',
@@ -37,15 +61,6 @@ const TrainerDashboard = () => {
     'Bodybuilding'
   ];
 
-  const dayOptions = [
-    'Monday',
-    'Tuesday', 
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday'
-  ];
 
   useEffect(() => {
     if (user) {
@@ -55,15 +70,115 @@ const TrainerDashboard = () => {
         bio: user.bio || '',
         specialties: user.specialties || [],
         sessionRate: user.sessionRate || '',
-        sessionCapacity: user.sessionCapacity || '1',
         availability: {
-          days: user.availability?.days || [],
           timeSlots: user.availability?.timeSlots || [{ start: '', end: '' }]
         },
         profileImage: user.profileImage || ''
       });
     }
   }, [user]);
+
+  // Fetch recipes and posts
+  useEffect(() => {
+    fetchRecipes();
+  }, [recipeCurrentPage]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [blogCurrentPage]);
+
+  useEffect(() => {
+    if (user?.role === 'trainer') loadCalendar();
+  }, [calYear, calMonth, user]);
+
+  const fetchRecipes = async () => {
+    try {
+      setRecipeLoading(true);
+      const response = await recipesAPI.getMyRecipes(recipeCurrentPage, 5, null);
+      setRecipes(response.data.recipes);
+      setRecipeTotalPages(response.data.totalPages);
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+      toast.error('Failed to load your recipes');
+    } finally {
+      setRecipeLoading(false);
+    }
+  };
+
+  const loadCalendar = async () => {
+    try {
+      const { data } = await bookingsAPI.myClientsCalendar(calYear, calMonth);
+      setCalendarCounts(data.counts || {});
+    } catch (e) {
+      console.error('Calendar load error', e);
+    }
+  };
+
+  const loadClientsByDate = async (dateStr) => {
+    try {
+      setClientsLoading(true);
+      setSelectedDate(dateStr);
+      const { data } = await bookingsAPI.myClientsByDate(dateStr);
+      setClients(data.clients || []);
+    } catch (e) {
+      toast.error('Failed to load clients for selected date');
+    } finally {
+      setClientsLoading(false);
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      setBlogLoading(true);
+      const response = await blogsAPI.getMyPosts(blogCurrentPage, 5, null);
+      setPosts(response.data.posts);
+      setBlogTotalPages(response.data.totalPages);
+    } catch (error) {
+      console.error('Error fetching blog posts:', error);
+      toast.error('Failed to load your blog posts');
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
+  const handleDeleteRecipe = async (id) => {
+    if (window.confirm('Are you sure you want to delete this recipe?')) {
+      try {
+        await recipesAPI.remove(id);
+        toast.success('Recipe deleted successfully');
+        fetchRecipes(); // Refresh the list
+      } catch (error) {
+        toast.error('Failed to delete recipe');
+      }
+    }
+  };
+
+  const handleDeletePost = async (id) => {
+    if (window.confirm('Are you sure you want to delete this blog post?')) {
+      try {
+        await blogsAPI.remove(id);
+        toast.success('Blog post deleted successfully');
+        fetchPosts(); // Refresh the list
+      } catch (error) {
+        toast.error('Failed to delete blog post');
+      }
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      draft: { class: 'status-badge draft', text: 'Draft' },
+      published: { class: 'status-badge published', text: 'Published' }
+    };
+    const badge = badges[status] || badges.draft;
+    return <span className={badge.class}>{badge.text}</span>;
+  };
+
+  const truncateContent = (content, maxLength = 80) => {
+    if (!content) return '';
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength) + '...';
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -78,24 +193,6 @@ const TrainerDashboard = () => {
         setProfileForm(prev => ({
           ...prev,
           specialties: prev.specialties.filter(s => s !== value)
-        }));
-      }
-    } else if (name === 'availableDays') {
-      if (checked) {
-        setProfileForm(prev => ({
-          ...prev,
-          availability: {
-            ...prev.availability,
-            days: [...prev.availability.days, value]
-          }
-        }));
-      } else {
-        setProfileForm(prev => ({
-          ...prev,
-          availability: {
-            ...prev.availability,
-            days: prev.availability.days.filter(d => d !== value)
-          }
         }));
       }
     } else {
@@ -142,10 +239,6 @@ const TrainerDashboard = () => {
       return;
     }
 
-    if (profileForm.availability.days.length === 0) {
-      toast.error("Please select at least one available day");
-      return;
-    }
 
     if (profileForm.availability.timeSlots.some(slot => !slot.start || !slot.end)) {
       toast.error("Please fill in all time slots");
@@ -153,36 +246,20 @@ const TrainerDashboard = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/users/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          fullName: profileForm.fullName,
-          email: profileForm.email,
-          bio: profileForm.bio,
-          specialties: profileForm.specialties,
-          sessionRate: parseFloat(profileForm.sessionRate),
-          sessionCapacity: parseInt(profileForm.sessionCapacity, 10),
-          availability: profileForm.availability,
-          profileImage: profileForm.profileImage
-        }),
-      });
+      const payload = {
+        fullName: profileForm.fullName,
+        email: profileForm.email,
+        bio: profileForm.bio,
+        specialties: profileForm.specialties,
+        sessionRate: parseFloat(profileForm.sessionRate),
+        availability: profileForm.availability,
+        profileImage: profileForm.profileImage
+      };
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Profile updated successfully');
+      const result = await updateProfile(payload);
+      if (result?.success) {
+        // AuthContext already updates user and localStorage + shows toast
         setEditing(false);
-      } else {
-        if (data.errors && Array.isArray(data.errors)) {
-          data.errors.forEach(error => toast.error(error.msg));
-        } else {
-          toast.error(data.message || 'Update failed');
-        }
       }
     } catch (error) {
       console.error('Update error:', error);
@@ -231,8 +308,7 @@ const TrainerDashboard = () => {
                     <div>
                       <p><strong>Full Name:</strong> {user?.fullName}</p>
                       <p><strong>Email:</strong> {user?.email}</p>
-                      <p><strong>Session Rate:</strong> LKR {user?.sessionRate}/hour</p>
-                      <p><strong>Max Trainees per Session:</strong> {user?.sessionCapacity}</p>
+                      <p><strong>Session Rate:</strong> LKR {user?.sessionRate}/Per Session</p>
                     </div>
                     <div>
                       <p><strong>Specialties:</strong></p>
@@ -240,14 +316,6 @@ const TrainerDashboard = () => {
                         {user?.specialties?.map(specialty => (
                           <span key={specialty} className="specialty-tag">
                             {specialty}
-                          </span>
-                        ))}
-                      </div>
-                      <p><strong>Available Days:</strong></p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
-                        {user?.availability?.days?.map(day => (
-                          <span key={day} className="day-tag">
-                            {day}
                           </span>
                         ))}
                       </div>
@@ -299,15 +367,9 @@ const TrainerDashboard = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Session Rate (LKR per hour)</label>
+                  <label>Session Rate (LKR per session)</label>
                   <input type="number" min="0" step="1" value={profileForm.sessionRate}
                     onChange={(e) => setProfileForm({ ...profileForm, sessionRate: e.target.value })}
-                    className="form-input" required />
-                </div>
-                <div className="form-group">
-                  <label>Max Trainees per Session</label>
-                  <input type="number" min="1" step="1" value={profileForm.sessionCapacity}
-                    onChange={(e) => setProfileForm({ ...profileForm, sessionCapacity: e.target.value })}
                     className="form-input" required />
                 </div>
               </div>
@@ -331,24 +393,6 @@ const TrainerDashboard = () => {
                         style={{ marginRight: '0.5rem' }}
                       />
                       {specialty}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Available Days</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {dayOptions.map(day => (
-                    <label key={day} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        name="availableDays"
-                        value={day}
-                        checked={profileForm.availability.days.includes(day)}
-                        onChange={handleChange}
-                        style={{ marginRight: '0.5rem' }}
-                      />
-                      {day}
                     </label>
                   ))}
                 </div>
@@ -383,6 +427,210 @@ const TrainerDashboard = () => {
               </div>
             </form>
           )}
+        </div>
+
+        {/* Blog Posts Management */}
+        <div className="content-management-section" style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+              <BookOpen size={24} style={{ marginRight: '8px' }} />
+              Blog Posts Management
+            </h2>
+            <Link to="/trainer/blogs/new" className="btn btn-primary">
+              <Plus size={16} style={{ marginRight: '4px' }} />
+              Create Post
+            </Link>
+          </div>
+          <div className="card">
+            {blogLoading ? (
+              <div className="loading"><div className="spinner"></div></div>
+            ) : (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Content</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {posts.length > 0 ? posts.map(post => (
+                      <tr key={post._id}>
+                        <td>{post.title}</td>
+                        <td>{truncateContent(post.content)}</td>
+                        <td>{getStatusBadge(post.status)}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <Link to={`/trainer/blogs/${post._id}/edit`} className="btn btn-sm btn-primary" title="Edit"><Edit size={16} /></Link>
+                            <button onClick={() => handleDeletePost(post._id)} className="btn btn-sm btn-danger" title="Delete"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan="4" className="text-center">No blog posts found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {blogTotalPages > 1 && (
+              <div className="pagination">
+                <button onClick={() => setBlogCurrentPage(p => Math.max(p - 1, 1))} disabled={blogCurrentPage === 1}>Previous</button>
+                <span>Page {blogCurrentPage} of {blogTotalPages}</span>
+                <button onClick={() => setBlogCurrentPage(p => Math.min(p + 1, blogTotalPages))} disabled={blogCurrentPage === blogTotalPages}>Next</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recipes Management */}
+        <div className="content-management-section" style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+              <ChefHat size={24} style={{ marginRight: '8px' }} />
+              Recipes Management
+            </h2>
+            <Link to="/trainer/recipes/new" className="btn btn-primary">
+              <Plus size={16} style={{ marginRight: '4px' }} />
+              Create Recipe
+            </Link>
+          </div>
+          <div className="card">
+            {recipeLoading ? (
+              <div className="loading"><div className="spinner"></div></div>
+            ) : (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Recipe</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipes.length > 0 ? recipes.map(recipe => (
+                      <tr key={recipe._id}>
+                        <td>{recipe.name}</td>
+                        <td><span className="category-tag">{recipe.category}</span></td>
+                        <td>{getStatusBadge(recipe.status)}</td>
+                        <td>
+                          <div className="action-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <Link to={`/trainer/recipes/${recipe._id}/edit`} className="btn btn-sm btn-primary" title="Edit"><Edit size={16} /></Link>
+                            <button onClick={() => handleDeleteRecipe(recipe._id)} className="btn btn-sm btn-danger" title="Delete"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan="4" className="text-center">No recipes found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {recipeTotalPages > 1 && (
+              <div className="pagination">
+                <button onClick={() => setRecipeCurrentPage(p => Math.max(p - 1, 1))} disabled={recipeCurrentPage === 1}>Previous</button>
+                <span>Page {recipeCurrentPage} of {recipeTotalPages}</span>
+                <button onClick={() => setRecipeCurrentPage(p => Math.min(p + 1, recipeTotalPages))} disabled={recipeCurrentPage === recipeTotalPages}>Next</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* My Clients - Calendar & List */}
+        <div className="content-management-section" style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+              <Calendar size={24} style={{ marginRight: '8px' }} />
+              My Clients
+            </h2>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select
+                className="form-input"
+                value={calMonth}
+                onChange={(e) => setCalMonth(parseInt(e.target.value))}
+              >
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                  <option key={m} value={m}>{m.toString().padStart(2,'0')}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                className="form-input"
+                value={calYear}
+                onChange={(e) => setCalYear(parseInt(e.target.value) || calYear)}
+                style={{ width: 100 }}
+              />
+            </div>
+          </div>
+
+          <div className="card">
+            {/* Simple calendar grid for the selected month */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+              {(() => {
+                const first = new Date(calYear, calMonth - 1, 1);
+                const last = new Date(calYear, calMonth, 0);
+                const daysInMonth = last.getDate();
+                const startWeekday = (first.getDay() + 6) % 7; // Mon=0
+                const cells = [];
+                for (let i = 0; i < startWeekday; i++) cells.push(<div key={`empty-${i}`}></div>);
+                for (let d = 1; d <= daysInMonth; d++) {
+                  const yyyy = calYear;
+                  const mm = String(calMonth).padStart(2, '0');
+                  const dd = String(d).padStart(2, '0');
+                  const dateStr = `${yyyy}-${mm}-${dd}`;
+                  const count = calendarCounts[dateStr] || 0;
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  const isToday = dateStr === todayStr;
+                  const hasClients = count > 0;
+                  let bg = '#fff';
+                  if (isToday && hasClients) bg = '#e6ffed'; // current date with clients
+                  else if (isToday) bg = '#fff7e6'; // current date
+                  else if (hasClients) bg = '#eef7ff'; // any clients
+                  const style = {
+                    padding: '0.75rem',
+                    textAlign: 'left',
+                    border: selectedDate === dateStr ? '2px solid #667eea' : '1px solid #eee',
+                    backgroundColor: bg,
+                    cursor: 'pointer'
+                  };
+                  cells.push(
+                    <button
+                      key={dateStr}
+                      className="card"
+                      onClick={() => loadClientsByDate(dateStr)}
+                      style={style}
+                    >
+                      <div style={{ fontWeight: 600 }}>{d}</div>
+                      <div style={{ fontSize: 12, color: hasClients ? '#333' : '#666' }}>{count} clients</div>
+                    </button>
+                  );
+                }
+                return cells;
+              })()}
+            </div>
+
+            <div style={{ marginTop: '1rem' }}>
+              <h3 style={{ marginTop: 0 }}>Clients on {selectedDate || '—'}</h3>
+              {clientsLoading ? (
+                <div className="loading"><div className="spinner"/></div>
+              ) : clients.length === 0 ? (
+                <p>No clients scheduled.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {clients.map(c => (
+                    <li key={c.bookingId} style={{ padding: '6px 0', borderBottom: '1px solid #eee' }}>
+                      <span>{c.fullName} <span style={{ color: '#777' }}>({c.email})</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

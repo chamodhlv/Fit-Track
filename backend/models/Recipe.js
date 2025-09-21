@@ -28,7 +28,9 @@ const RecipeSchema = new mongoose.Schema(
       ]
     },
     instructions: { type: String, required: true }, // Required cooking instructions
-    published: { type: Boolean, default: true },
+    prepTime: { type: Number, min: 0 }, // in minutes
+    servings: { type: Number, min: 1 }, // number of servings
+    status: { type: String, enum: ['draft', 'published'], default: 'draft' },
     publishedAt: { type: Date },
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
@@ -40,8 +42,10 @@ RecipeSchema.pre('save', function (next) {
     const baseSlug = slugify(this.name, { lower: true, strict: true });
     this.slug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
   }
-  if (this.published && !this.publishedAt) {
+  if (this.status === 'published' && !this.publishedAt) {
     this.publishedAt = new Date();
+  } else if (this.status === 'draft') {
+    this.publishedAt = null;
   }
   next();
 });

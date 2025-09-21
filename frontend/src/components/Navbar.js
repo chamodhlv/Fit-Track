@@ -25,6 +25,7 @@ const Navbar = () => {
               <Link to="/dashboard" className="nav-link">Member Dashboard</Link>
             )}
             <Link to="/blog" className="nav-link">Blog</Link>
+            <Link to="/book-trainer" className="nav-link">Book a Trainer</Link>
             <Link to="/recipes" className="nav-link">Recipes</Link>
             <div className="user-info">
               <User size={20} />
@@ -40,6 +41,7 @@ const Navbar = () => {
         ) : (
           <div className="navbar-nav">
             <Link to="/blog" className="nav-link">Blog</Link>
+            <Link to="/book-trainer" className="nav-link">Book a Trainer</Link>
             <Link to="/recipes" className="nav-link">Recipes</Link>
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/register" className="nav-link">Register</Link>

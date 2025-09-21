@@ -8,6 +8,7 @@ const RecipeEditor = () => {
   const location = useLocation();
   const { id } = useParams();
   const mode = useMemo(() => (id ? 'edit' : 'create'), [id]);
+  const isTrainerRoute = useMemo(() => location.pathname.startsWith('/trainer/'), [location.pathname]);
 
   const [loading, setLoading] = useState(mode === 'edit');
   const [form, setForm] = useState({
@@ -57,7 +58,7 @@ const RecipeEditor = () => {
         return;
       }
       try {
-        const res = await recipesAPI.getById(id);
+        const res = isTrainerRoute ? await recipesAPI.getMineById(id) : await recipesAPI.getById(id);
         const r = res.data?.recipe;
         setForm({
           name: r?.name || '',
@@ -79,7 +80,7 @@ const RecipeEditor = () => {
       }
     };
     bootstrap();
-  }, [id, location.state, mode]);
+  }, [id, location.state, mode, isTrainerRoute]);
 
   const handleIngredientChange = (index, field, value) => {
     const newIngredients = [...form.ingredients];
@@ -166,7 +167,7 @@ const RecipeEditor = () => {
         await recipesAPI.create(payload);
         toast.success('Recipe created');
       }
-      navigate('/admin');
+      navigate(isTrainerRoute ? '/trainer-dashboard' : '/admin');
     } catch (error) {
       const errs = error?.response?.data?.errors;
       if (Array.isArray(errs) && errs.length) {
@@ -189,7 +190,7 @@ const RecipeEditor = () => {
     <div className="container">
       <div className="section-header">
         <h2 className="section-title">{mode === 'edit' ? 'Edit Recipe' : 'Create Recipe'}</h2>
-        <Link to="/admin" className="btn btn-secondary">Back</Link>
+        <Link to={isTrainerRoute ? '/trainer-dashboard' : '/admin'} className="btn btn-secondary">Back</Link>
       </div>
 
       <form onSubmit={handleSubmit} className="card" style={{ padding: 16 }}>
@@ -381,7 +382,7 @@ const RecipeEditor = () => {
 
 
         <div className="modal-footer" style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/admin')}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate(isTrainerRoute ? '/trainer-dashboard' : '/admin')}>Cancel</button>
           <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : 'Create Recipe'}</button>
         </div>
       </form>
