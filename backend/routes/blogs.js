@@ -99,7 +99,7 @@ router.post(
   [
     auth,
     adminAuth,
-    body('title').trim().isLength({ min: 3 }).withMessage('Title is required'),
+    body('title').trim().isLength({ min: 3, max: 150 }).withMessage('Title is required and must be at most 150 characters'),
     body('content').trim().isLength({ min: 10 }).withMessage('Content is required'),
     body('tags').optional().isArray().withMessage('Tags must be an array of strings'),
     body('categories').optional().isArray().withMessage('Categories must be an array of strings'),
@@ -142,7 +142,7 @@ router.put(
   [
     auth,
     adminAuth,
-    body('title').optional().trim().isLength({ min: 3 }),
+    body('title').optional().trim().isLength({ min: 3, max: 150 }),
     body('content').optional().trim().isLength({ min: 10 }),
     body('tags').optional().isArray(),
     body('categories').optional().isArray().withMessage('Categories must be an array of strings'),

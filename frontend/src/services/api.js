@@ -95,4 +95,26 @@ export const commentsAPI = {
   deleteComment: (id) => api.delete(`/comments/${id}`),
 };
 
+// Recipes API
+export const recipesAPI = {
+  // public read
+  list: (page = 1, limit = 10, filters = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (filters.category) params.append('category', filters.category);
+    if (filters.search) params.append('search', filters.search);
+    return api.get(`/recipes?${params.toString()}`);
+  },
+  getBySlug: (slug) => api.get(`/recipes/${slug}`),
+  getFavorites: (page = 1, limit = 10) => api.get(`/recipes/favorites?page=${page}&limit=${limit}`),
+  toggleFavorite: (id) => api.post(`/recipes/favorites/${id}`),
+  // admin
+  adminList: (page = 1, limit = 10) => api.get(`/recipes/admin?page=${page}&limit=${limit}`),
+  getById: (id) => api.get(`/recipes/admin/${id}`),
+  create: (data) => api.post('/recipes', data),
+  update: (id, data) => api.put(`/recipes/${id}`, data),
+  remove: (id) => api.delete(`/recipes/${id}`),
+};
+
 export default api;

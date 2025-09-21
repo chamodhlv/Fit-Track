@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI, blogsAPI } from '../services/api';
+import { usersAPI, blogsAPI, recipesAPI } from '../services/api';
 import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -44,6 +44,12 @@ const AdminDashboard = () => {
   const [showAddPost, setShowAddPost] = useState(false);
   const [newPostForm, setNewPostForm] = useState({ title: '', content: '', coverImageUrl: '', categories: [] });
 
+  // Recipe management state
+  const [recipeLoading, setRecipeLoading] = useState(true);
+  const [recipes, setRecipes] = useState([]);
+  const [recipeCurrentPage, setRecipeCurrentPage] = useState(1);
+  const [recipeTotalPages, setRecipeTotalPages] = useState(1);
+
   const availableCategories = [
     'Strength Training',
     'Yoga & Flexibility',
@@ -51,6 +57,15 @@ const AdminDashboard = () => {
     'Weight Loss',
     'Muscle Building',
     'Health & Recovery'
+  ];
+
+  const availableRecipeCategories = [
+    'High Protein',
+    'Low Calories',
+    'Weight Loss',
+    'Weight Gain',
+    'Healthy Desserts',
+    'Vegan'
   ];
 
   useEffect(() => {
@@ -64,6 +79,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchBlogPosts();
   }, [blogCurrentPage]);
+
+  useEffect(() => {
+    fetchRecipes();
+  }, [recipeCurrentPage]);
 
   const fetchUsers = async () => {
     try {
@@ -113,6 +132,20 @@ const AdminDashboard = () => {
       toast.error('Failed to fetch blog posts');
     } finally {
       setBlogLoading(false);
+    }
+  };
+
+  // Recipes: list
+  const fetchRecipes = async () => {
+    try {
+      setRecipeLoading(true);
+      const res = await recipesAPI.adminList(recipeCurrentPage, 10);
+      setRecipes(res.data.recipes || []);
+      setRecipeTotalPages(res.data.totalPages || 1);
+    } catch (error) {
+      toast.error('Failed to fetch recipes');
+    } finally {
+      setRecipeLoading(false);
     }
   };
 
@@ -241,6 +274,25 @@ const AdminDashboard = () => {
         toast.error(errs.map((e) => e.msg).join('\n'));
       } else {
         toast.error(error?.response?.data?.message || 'Failed to create post');
+      }
+    }
+  };
+
+  // Recipes: edit init
+  const handleEditRecipe = (recipe) => {
+    // Navigate to full editor page with preloaded state
+    navigate(`/admin/recipes/${recipe._id}/edit`, { state: { recipe } });
+  };
+
+  // Recipes: delete
+  const handleDeleteRecipe = async (recipeId) => {
+    if (window.confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      try {
+        await recipesAPI.remove(recipeId);
+        toast.success('Recipe deleted successfully');
+        fetchRecipes();
+      } catch (error) {
+        toast.error('Failed to delete recipe');
       }
     }
   };
@@ -898,6 +950,110 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Recipe Management Section */}
+        <div className="section-header" style={{ marginTop: '2rem' }}>
+          <h2 className="section-title">
+            <FileText size={24} style={{ marginRight: '8px' }} />
+            Recipe Management
+          </h2>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/recipes/new')}>
+            <Plus size={16} style={{ marginRight: '4px' }} /> New Recipe
+          </button>
+        </div>
+
+        {recipeLoading ? (
+          <div className="loading"><div className="spinner"></div></div>
+        ) : recipes.length === 0 ? (
+          <div className="card text-center">
+            <FileText size={48} style={{ margin: '0 auto 1rem', color: '#ccc' }} />
+            <h3>No recipes found</h3>
+            <p>Create your first fitness recipe.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Recipe</th>
+                  <th>Category</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recipes.map((recipe) => (
+                  <tr key={recipe._id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {recipe.image && (
+                          <img
+                            src={recipe.image}
+                            alt={recipe.name}
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://via.placeholder.com/50x50?text=Recipe'; }}
+                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                          />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{recipe.name}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {recipe.category ? (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            backgroundColor: '#e3f2fd',
+                            color: '#1976d2',
+                            padding: '2px 6px',
+                            borderRadius: '8px',
+                            fontSize: '11px'
+                          }}
+                        >
+                          {recipe.category}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '12px' }}>No category</span>
+                      )}
+                    </td>
+                    <td>{formatDate(recipe.createdAt)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={() => handleEditRecipe(recipe)}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Edit Recipe"
+                        >
+                          <Edit size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecipe(recipe._id)}
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Delete Recipe"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {recipeTotalPages > 1 && (
+          <div className="pagination">
+            <button onClick={() => setRecipeCurrentPage((p) => Math.max(p - 1, 1))} disabled={recipeCurrentPage === 1}>Previous</button>
+            {Array.from({ length: recipeTotalPages }, (_, i) => i + 1).map((page) => (
+              <button key={page} onClick={() => setRecipeCurrentPage(page)} className={recipeCurrentPage === page ? 'active' : ''}>{page}</button>
+            ))}
+            <button onClick={() => setRecipeCurrentPage((p) => Math.min(p + 1, recipeTotalPages))} disabled={recipeCurrentPage === recipeTotalPages}>Next</button>
+          </div>
+        )}
+
         {/* Add/Edit Post Modal */}
         {showAddPost && (
           <div className="modal-overlay" onClick={() => setShowAddPost(false)}>
@@ -908,8 +1064,19 @@ const AdminDashboard = () => {
               </div>
               <form onSubmit={handleCreatePost} className="modal-body">
                 <div className="form-group">
-                  <label>Title *</label>
-                  <input type="text" required value={newPostForm.title} onChange={(e) => setNewPostForm({ ...newPostForm, title: e.target.value })} className="form-input" placeholder="Enter title" />
+                  <label>Title * (max 150 characters)</label>
+                  <input 
+                    type="text" 
+                    required 
+                    maxLength="150" 
+                    value={newPostForm.title} 
+                    onChange={(e) => setNewPostForm({ ...newPostForm, title: e.target.value })} 
+                    className="form-input" 
+                    placeholder="Enter title"
+                  />
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    {newPostForm.title.length}/150 characters
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Content *</label>
