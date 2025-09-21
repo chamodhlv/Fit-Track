@@ -157,4 +157,16 @@ export const bookingsAPI = {
   myClientsByDate: (date) => api.get(`/bookings/my-clients/by-date?date=${encodeURIComponent(date)}`),
 };
 
+// Events API
+export const eventsAPI = {
+  // public
+  list: (page = 1, limit = 10) => api.get(`/events?page=${page}&limit=${limit}`),
+  getById: (id) => api.get(`/events/${id}`),
+  toggleAttendance: (id) => api.post(`/events/${id}/attendance`),
+  // admin
+  create: (data) => api.post('/events', data),
+  update: (id, data) => api.put(`/events/${id}`, data),
+  remove: (id) => api.delete(`/events/${id}`),
+};
+
 export default api;

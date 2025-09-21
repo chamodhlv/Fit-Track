@@ -27,6 +27,7 @@ const Navbar = () => {
             <Link to="/blog" className="nav-link">Blog</Link>
             <Link to="/book-trainer" className="nav-link">Book a Trainer</Link>
             <Link to="/recipes" className="nav-link">Recipes</Link>
+            <Link to="/events" className="nav-link">Events</Link>
             <div className="user-info">
               <User size={20} />
               <span className="user-name">
@@ -43,6 +44,7 @@ const Navbar = () => {
             <Link to="/blog" className="nav-link">Blog</Link>
             <Link to="/book-trainer" className="nav-link">Book a Trainer</Link>
             <Link to="/recipes" className="nav-link">Recipes</Link>
+            <Link to="/events" className="nav-link">Events</Link>
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/register" className="nav-link">Register</Link>
             <Link to="/register-trainer" className="nav-link" style={{ 
