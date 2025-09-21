@@ -13,6 +13,9 @@ import WorkoutForm from './pages/WorkoutForm';
 import BlogList from './pages/BlogList';
 import BlogDetail from './pages/BlogDetail';
 import BlogEditor from './pages/BlogEditor';
+import RecipeList from './pages/RecipeList';
+import RecipeDetail from './pages/RecipeDetail';
+import RecipeEditor from './pages/RecipeEditor';
 import './App.css';
 
 // Protected Route Component
@@ -106,6 +109,14 @@ function AppContent() {
             element={<BlogDetail />} 
           />
           <Route 
+            path="/recipes" 
+            element={<RecipeList />} 
+          />
+          <Route 
+            path="/recipes/:slug" 
+            element={<RecipeDetail />} 
+          />
+          <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute>
@@ -142,6 +153,22 @@ function AppContent() {
             element={
               <ProtectedRoute adminOnly={true}>
                 <BlogEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route 
+            path="/admin/recipes/new" 
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <RecipeEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route 
+            path="/admin/recipes/:id/edit" 
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <RecipeEditor />
               </ProtectedRoute>
             }
           />

@@ -102,7 +102,12 @@ const userSchema = new mongoose.Schema({
   },
   rejectedAt: {
     type: Date
-  }
+  },
+  // Favorite recipes
+  favoriteRecipes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Recipe'
+  }]
 }, {
   timestamps: true
 });

@@ -113,15 +113,19 @@ const BlogEditor = () => {
 
       <form onSubmit={handleSubmit} className="card" style={{ padding: 16 }}>
         <div className="form-group">
-          <label>Title *</label>
+          <label>Title * (max 150 characters)</label>
           <input
             type="text"
             required
+            maxLength="150"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             className="form-input"
             placeholder="Enter title"
           />
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+            {form.title.length}/150 characters
+          </div>
         </div>
 
         <div className="form-group">
