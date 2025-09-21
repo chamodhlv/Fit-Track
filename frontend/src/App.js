@@ -16,6 +16,8 @@ import BlogEditor from './pages/BlogEditor';
 import RecipeList from './pages/RecipeList';
 import RecipeDetail from './pages/RecipeDetail';
 import RecipeEditor from './pages/RecipeEditor';
+import BookTrainer from './pages/BookTrainer';
+// Removed TrainerRecipes list page; dashboard handles management
 import './App.css';
 
 // Protected Route Component
@@ -116,6 +118,10 @@ function AppContent() {
             path="/recipes/:slug" 
             element={<RecipeDetail />} 
           />
+          <Route
+            path="/book-trainer"
+            element={<BookTrainer />}
+          />
           <Route 
             path="/dashboard" 
             element={
@@ -137,6 +143,38 @@ function AppContent() {
             element={
               <ProtectedRoute trainerOnly={true}>
                 <TrainerDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/trainer/recipes/new" 
+            element={
+              <ProtectedRoute trainerOnly={true}>
+                <RecipeEditor />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/trainer/recipes/:id/edit" 
+            element={
+              <ProtectedRoute trainerOnly={true}>
+                <RecipeEditor />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/trainer/blogs/new" 
+            element={
+              <ProtectedRoute trainerOnly={true}>
+                <BlogEditor />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/trainer/blogs/:id/edit" 
+            element={
+              <ProtectedRoute trainerOnly={true}>
+                <BlogEditor />
               </ProtectedRoute>
             } 
           />

@@ -732,6 +732,43 @@
   padding: 1rem;
 }
 
+/* Book Trainer Grid */
+.trainers-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .trainers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.trainer-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 200px;
+}
+
+.trainer-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trainer-card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .trainer-summary .summary-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -757,5 +794,221 @@
 
 .summary-section {
   margin-top: 1rem;
+}
+
+/* Status Badge Styles */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+}
+
+.status-badge.draft {
+  background-color: #666;
+}
+
+.status-badge.published {
+  background-color: #4caf50;
+}
+
+/* Trainer approval status badges */
+.status-badge.approved {
+  background-color: #22c55e; /* green */
+}
+.status-badge.pending {
+  background-color: #f59e0b; /* amber */
+}
+.status-badge.rejected {
+  background-color: #ef4444; /* red */
+}
+
+/* Filter Section Styles */
+.filter-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+/* Recipe/Blog Thumbnail Styles */
+.recipe-thumbnail, .post-thumbnail {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 0.75rem;
+}
+
+.recipe-info, .post-info {
+  display: flex;
+  align-items: center;
+}
+
+.recipe-name, .post-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.recipe-meta, .post-meta {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.category-tag {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  margin-right: 0.25rem;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.content-preview {
+  max-width: 200px;
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.3;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-warning {
+  background-color: #ff9800;
+  color: white;
+  border: none;
+}
+
+.btn-warning:hover {
+  background-color: #f57c00;
+}
+
+.btn-success {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+}
+
+.btn-success:hover {
+  background-color: #45a049;
+}
+
+/* Table Improvements */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.data-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.data-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Trainer Dashboard Content Management Styles */
+.content-management-section {
+  margin-top: 2rem;
+}
+
+.management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.management-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.management-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.management-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.management-actions .btn {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.management-actions .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Content Guidelines Card */
+.card.guidelines {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.card.guidelines h4 {
+  margin-bottom: 0.75rem;
+  color: #495057;
+  font-size: 1rem;
+}
+
+.card.guidelines ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.card.guidelines li {
+  margin-bottom: 0.5rem;
 }
 

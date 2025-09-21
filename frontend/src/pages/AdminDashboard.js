@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, blogsAPI, recipesAPI } from '../services/api';
-import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock } from 'lucide-react';
+import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
@@ -33,6 +33,39 @@ const AdminDashboard = () => {
   const [trainerCurrentPage, setTrainerCurrentPage] = useState(1);
   const [trainerTotalPages, setTrainerTotalPages] = useState(1);
   const [processingTrainer, setProcessingTrainer] = useState(null);
+
+  // Trainer management state
+  const [allTrainersLoading, setAllTrainersLoading] = useState(true);
+  const [allTrainers, setAllTrainers] = useState([]);
+  const [allTrainersCurrentPage, setAllTrainersCurrentPage] = useState(1);
+  const [allTrainersTotalPages, setAllTrainersTotalPages] = useState(1);
+  const [trainerStatusFilter, setTrainerStatusFilter] = useState('all');
+  const [editingTrainer, setEditingTrainer] = useState(null);
+  const [showAddTrainer, setShowAddTrainer] = useState(false);
+  const [trainerEditForm, setTrainerEditForm] = useState({
+    fullName: '',
+    email: '',
+    bio: '',
+    specialties: [],
+    sessionRate: '',
+    availability: { timeSlots: [{ start: '', end: '' }] },
+    profileImage: ''
+  });
+  const [newTrainerForm, setNewTrainerForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    age: '',
+    weight: '',
+    height: '',
+    fitnessGoal: 'muscle gain',
+    experienceLevel: 'advanced',
+    bio: '',
+    specialties: [],
+    sessionRate: '',
+    availability: { timeSlots: [{ start: '', end: '' }] },
+    profileImage: ''
+  });
 
   // Blog management state
   const [blogLoading, setBlogLoading] = useState(true);
@@ -77,6 +110,10 @@ const AdminDashboard = () => {
   }, [trainerCurrentPage]);
 
   useEffect(() => {
+    fetchAllTrainers();
+  }, [allTrainersCurrentPage, trainerStatusFilter]);
+
+  useEffect(() => {
     fetchBlogPosts();
   }, [blogCurrentPage]);
 
@@ -118,6 +155,175 @@ const AdminDashboard = () => {
       toast.error('Failed to fetch pending trainers');
     } finally {
       setTrainerLoading(false);
+    }
+  };
+
+  // Trainer management functions
+  const fetchAllTrainers = async () => {
+    try {
+      setAllTrainersLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/users/trainers?page=${allTrainersCurrentPage}&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setAllTrainers(data.trainers || []);
+        setAllTrainersTotalPages(data.totalPages || 1);
+      } else {
+        toast.error('Failed to fetch trainers');
+      }
+    } catch (error) {
+      toast.error('Failed to fetch trainers');
+    } finally {
+      setAllTrainersLoading(false);
+    }
+  };
+
+  const handleEditTrainer = (trainer) => {
+    setEditingTrainer(trainer._id);
+    setTrainerEditForm({
+      fullName: trainer.fullName || '',
+      email: trainer.email || '',
+      bio: trainer.bio || '',
+      specialties: trainer.specialties || [],
+      sessionRate: trainer.sessionRate || '',
+      availability: trainer.availability || { timeSlots: [{ start: '', end: '' }] },
+      profileImage: trainer.profileImage || ''
+    });
+  };
+
+  const handleUpdateTrainer = async (trainerId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/users/trainers/${trainerId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(trainerEditForm)
+      });
+
+      if (response.ok) {
+        toast.success('Trainer updated successfully');
+        setEditingTrainer(null);
+        fetchAllTrainers();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Failed to update trainer');
+      }
+    } catch (error) {
+      toast.error('Failed to update trainer');
+    }
+  };
+
+  const handleDeleteTrainer = async (trainerId) => {
+    if (window.confirm('Are you sure you want to delete this trainer? This action cannot be undone.')) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/users/trainers/${trainerId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          toast.success('Trainer deleted successfully');
+          fetchAllTrainers();
+        } else {
+          const data = await response.json();
+          toast.error(data.message || 'Failed to delete trainer');
+        }
+      } catch (error) {
+        toast.error('Failed to delete trainer');
+      }
+    }
+  };
+
+  const handleCreateTrainer = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users/trainers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fullName: newTrainerForm.fullName,
+          email: newTrainerForm.email,
+          password: newTrainerForm.password,
+          // Provide backend-required defaults since we removed these fields from the form
+          age: Number(newTrainerForm.age) || 30,
+          weight: Number(newTrainerForm.weight) || 70,
+          height: Number(newTrainerForm.height) || 170,
+          fitnessGoal: newTrainerForm.fitnessGoal || 'muscle gain',
+          experienceLevel: newTrainerForm.experienceLevel || 'advanced',
+          bio: newTrainerForm.bio,
+          specialties: newTrainerForm.specialties,
+          sessionRate: Number(newTrainerForm.sessionRate),
+          availability: newTrainerForm.availability,
+          profileImage: newTrainerForm.profileImage || '',
+          role: 'trainer',
+          approvalStatus: 'approved'
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Trainer created successfully');
+        setShowAddTrainer(false);
+        setNewTrainerForm({
+          fullName: '',
+          email: '',
+          password: '',
+          age: '',
+          weight: '',
+          height: '',
+          fitnessGoal: 'muscle gain',
+          experienceLevel: 'advanced',
+          bio: '',
+          specialties: [],
+          sessionRate: '',
+          availability: { timeSlots: [{ start: '', end: '' }] },
+          profileImage: ''
+        });
+        fetchAllTrainers();
+      } else {
+        const data = await response.json();
+        const message = data.errors ? data.errors.map(err => err.msg).join(', ') : data.message;
+        toast.error(message || 'Failed to create trainer');
+      }
+    } catch (error) {
+      toast.error('Failed to create trainer');
+    }
+  };
+
+  const handleTrainerStatusChange = async (trainerId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = newStatus === 'approved' ? 'approve' : 'reject';
+      const response = await fetch(`/api/users/trainers/${trainerId}/${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success(`Trainer ${newStatus} successfully`);
+        fetchAllTrainers();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || `Failed to ${newStatus} trainer`);
+      }
+    } catch (error) {
+      toast.error(`Failed to ${newStatus} trainer`);
     }
   };
 
@@ -285,15 +491,55 @@ const AdminDashboard = () => {
   };
 
   // Recipes: delete
-  const handleDeleteRecipe = async (recipeId) => {
-    if (window.confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+  const handleDeleteRecipe = async (id) => {
+    if (window.confirm('Are you sure you want to delete this recipe?')) {
       try {
-        await recipesAPI.remove(recipeId);
+        await recipesAPI.remove(id);
         toast.success('Recipe deleted successfully');
         fetchRecipes();
       } catch (error) {
         toast.error('Failed to delete recipe');
       }
+    }
+  };
+
+  const handlePublishRecipe = async (id) => {
+    try {
+      await recipesAPI.publish(id);
+      toast.success('Recipe published successfully');
+      fetchRecipes();
+    } catch (error) {
+      toast.error('Failed to publish recipe');
+    }
+  };
+
+  const handleUnpublishRecipe = async (id) => {
+    try {
+      await recipesAPI.unpublish(id);
+      toast.success('Recipe unpublished successfully');
+      fetchRecipes();
+    } catch (error) {
+      toast.error('Failed to unpublish recipe');
+    }
+  };
+
+  const handlePublishPost = async (id) => {
+    try {
+      await blogsAPI.publish(id);
+      toast.success('Post published successfully');
+      fetchBlogPosts();
+    } catch (error) {
+      toast.error('Failed to publish post');
+    }
+  };
+
+  const handleUnpublishPost = async (id) => {
+    try {
+      await blogsAPI.unpublish(id);
+      toast.success('Post unpublished successfully');
+      fetchBlogPosts();
+    } catch (error) {
+      toast.error('Failed to unpublish post');
     }
   };
 
@@ -367,9 +613,36 @@ const AdminDashboard = () => {
     }
   };
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      draft: { class: 'status-badge draft', text: 'Draft', color: '#666' },
+      published: { class: 'status-badge published', text: 'Published', color: '#4caf50' }
+    };
+    const badge = badges[status] || badges.draft;
+    return (
+      <span 
+        style={{
+          display: 'inline-block',
+          backgroundColor: badge.color,
+          color: 'white',
+          padding: '2px 8px',
+          borderRadius: '12px',
+          fontSize: '11px',
+          fontWeight: '500'
+        }}
+      >
+        {badge.text}
+      </span>
+    );
+  };
 
   // Removed user management handlers and formatting as the admin page now only shows Total Members
 
@@ -751,7 +1024,7 @@ const AdminDashboard = () => {
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: '600' }}>${trainer.sessionRate}/hr</div>
+                      <div style={{ fontWeight: '600' }}>LKR {trainer.sessionRate}/Per Session</div>
                     </td>
                     <td>
                       <div style={{ fontSize: '0.9rem' }}>
@@ -822,6 +1095,319 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Trainer Management Section */}
+        <div className="section-header" style={{ marginTop: '2rem' }}>
+          <h2 className="section-title">
+            <Users size={24} style={{ marginRight: '8px' }} />
+            Trainer Management
+          </h2>
+          <button className="btn btn-primary" onClick={() => setShowAddTrainer(true)}>
+            <UserPlus size={16} style={{ marginRight: '4px' }} /> Add Trainer
+          </button>
+        </div>
+
+        {/* Add Trainer Form */}
+        {showAddTrainer && (
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <h3>Add New Trainer</h3>
+            <form onSubmit={handleCreateTrainer}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Full Name *</label>
+                  <input
+                    type="text"
+                    value={newTrainerForm.fullName}
+                    onChange={(e) => setNewTrainerForm({ ...newTrainerForm, fullName: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email *</label>
+                  <input
+                    type="email"
+                    value={newTrainerForm.email}
+                    onChange={(e) => setNewTrainerForm({ ...newTrainerForm, email: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Password *</label>
+                  <input
+                    type="password"
+                    value={newTrainerForm.password}
+                    onChange={(e) => setNewTrainerForm({ ...newTrainerForm, password: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                {/* Removed Age/Weight/Height inputs as requested; defaults will be sent in payload */}
+                <div className="form-group">
+                  <label className="form-label">Session Rate (LKR per session) *</label>
+                  <input
+                    type="number"
+                    value={newTrainerForm.sessionRate}
+                    onChange={(e) => setNewTrainerForm({ ...newTrainerForm, sessionRate: e.target.value })}
+                    className="form-input"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Bio *</label>
+                <textarea
+                  value={newTrainerForm.bio}
+                  onChange={(e) => setNewTrainerForm({ ...newTrainerForm, bio: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Specialties *</label>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'].map(specialty => (
+                    <label key={specialty} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={newTrainerForm.specialties.includes(specialty)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewTrainerForm({
+                              ...newTrainerForm,
+                              specialties: [...newTrainerForm.specialties, specialty]
+                            });
+                          } else {
+                            setNewTrainerForm({
+                              ...newTrainerForm,
+                              specialties: newTrainerForm.specialties.filter(s => s !== specialty)
+                            });
+                          }
+                        }}
+                      />
+                      {specialty}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddTrainer(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Trainer</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Trainer Status Filter removed as requested */}
+
+        {allTrainersLoading ? (
+          <div className="loading"><div className="spinner"></div></div>
+        ) : allTrainers.length === 0 ? (
+          <div className="card text-center">
+            <Users size={48} style={{ margin: '0 auto 1rem', color: '#ccc' }} />
+            <h3>No trainers found</h3>
+            <p>Create your first trainer.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Trainer</th>
+                  <th>Contact</th>
+                  <th>Specialties</th>
+                  <th>Rate</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allTrainers.map((trainer) => (
+                  <tr key={trainer._id}>
+                    <td>
+                      {editingTrainer === trainer._id ? (
+                        <input
+                          type="text"
+                          value={trainerEditForm.fullName}
+                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, fullName: e.target.value })}
+                          className="form-input"
+                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
+                        />
+                      ) : (
+                        <div>
+                          <div style={{ fontWeight: '600' }}>{trainer.fullName}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                            {trainer.bio?.substring(0, 60)}...
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      {editingTrainer === trainer._id ? (
+                        <input
+                          type="email"
+                          value={trainerEditForm.email}
+                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, email: e.target.value })}
+                          className="form-input"
+                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
+                        />
+                      ) : (
+                        <div>{trainer.email}</div>
+                      )}
+                    </td>
+                    <td>
+                      {editingTrainer === trainer._id ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                          {['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'].map(specialty => (
+                            <label key={specialty} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
+                              <input
+                                type="checkbox"
+                                checked={trainerEditForm.specialties.includes(specialty)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setTrainerEditForm({
+                                      ...trainerEditForm,
+                                      specialties: [...trainerEditForm.specialties, specialty]
+                                    });
+                                  } else {
+                                    setTrainerEditForm({
+                                      ...trainerEditForm,
+                                      specialties: trainerEditForm.specialties.filter(s => s !== specialty)
+                                    });
+                                  }
+                                }}
+                              />
+                              {specialty}
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                          {trainer.specialties?.map((specialty, index) => (
+                            <span 
+                              key={index}
+                              style={{
+                                display: 'inline-block',
+                                backgroundColor: '#e3f2fd',
+                                color: '#1976d2',
+                                padding: '2px 6px',
+                                borderRadius: '8px',
+                                fontSize: '11px'
+                              }}
+                            >
+                              {specialty}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      {editingTrainer === trainer._id ? (
+                        <input
+                          type="number"
+                          value={trainerEditForm.sessionRate}
+                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, sessionRate: e.target.value })}
+                          className="form-input"
+                          style={{ fontSize: '0.9rem', padding: '4px 8px', width: '80px' }}
+                          min="0"
+                          step="0.01"
+                        />
+                      ) : (
+                        <div style={{ fontWeight: '600' }}>LKR {trainer.sessionRate}/Per Session</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-badge ${trainer.approvalStatus}`}>
+                        {trainer.approvalStatus === 'approved' ? 'Approved' : 
+                         trainer.approvalStatus === 'pending' ? 'Pending' : 'Rejected'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {editingTrainer === trainer._id ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdateTrainer(trainer._id)}
+                              className="btn btn-success"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingTrainer(null)}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {trainer.approvalStatus === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleTrainerStatusChange(trainer._id, 'approved')}
+                                  className="btn btn-success"
+                                  style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                  title="Approve"
+                                >
+                                  <UserCheck size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleTrainerStatusChange(trainer._id, 'rejected')}
+                                  className="btn btn-warning"
+                                  style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                  title="Reject"
+                                >
+                                  <UserX size={12} />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleEditTrainer(trainer)}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                              title="Edit Trainer"
+                            >
+                              <Edit size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTrainer(trainer._id)}
+                              className="btn btn-danger"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                              title="Delete Trainer"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* All Trainers Pagination */}
+        {allTrainersTotalPages > 1 && (
+          <div className="pagination">
+            <button onClick={() => setAllTrainersCurrentPage((p) => Math.max(p - 1, 1))} disabled={allTrainersCurrentPage === 1}>Previous</button>
+            {Array.from({ length: allTrainersTotalPages }, (_, i) => i + 1).map((page) => (
+              <button key={page} onClick={() => setAllTrainersCurrentPage(page)} className={allTrainersCurrentPage === page ? 'active' : ''}>{page}</button>
+            ))}
+            <button onClick={() => setAllTrainersCurrentPage((p) => Math.min(p + 1, allTrainersTotalPages))} disabled={allTrainersCurrentPage === allTrainersTotalPages}>Next</button>
+          </div>
+        )}
+
         {/* Blog Post Management Section */}
         <div className="section-header" style={{ marginTop: '2rem' }}>
           <h2 className="section-title">
@@ -848,6 +1434,8 @@ const AdminDashboard = () => {
                 <tr>
                   <th>Title</th>
                   <th>Categories</th>
+                  <th>Author</th>
+                  <th>Status</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
@@ -891,6 +1479,17 @@ const AdminDashboard = () => {
                         <span style={{ color: '#999', fontSize: '12px' }}>No categories</span>
                       )}
                     </td>
+                    <td>
+                      <div style={{ fontSize: '0.9rem' }}>
+                        {post.author?.fullName || 'Unknown'}
+                        {post.author?.role === 'trainer' && (
+                          <span style={{ color: '#1976d2', fontSize: '0.8rem', marginLeft: '4px' }}>
+                            (Trainer)
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>{getStatusBadge(post.status)}</td>
                     <td>{formatDate(post.createdAt)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -913,6 +1512,25 @@ const AdminDashboard = () => {
                           </>
                         ) : (
                           <>
+                            {post.status === 'draft' ? (
+                              <button
+                                onClick={() => handlePublishPost(post._id)}
+                                className="btn btn-success"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                title="Publish Post"
+                              >
+                                <Eye size={12} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUnpublishPost(post._id)}
+                                className="btn btn-warning"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                title="Unpublish Post"
+                              >
+                                <EyeOff size={12} />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleEditPost(post)}
                               className="btn btn-secondary"
@@ -976,6 +1594,8 @@ const AdminDashboard = () => {
                 <tr>
                   <th>Recipe</th>
                   <th>Category</th>
+                  <th>Author</th>
+                  <th>Status</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
@@ -1016,9 +1636,39 @@ const AdminDashboard = () => {
                         <span style={{ color: '#999', fontSize: '12px' }}>No category</span>
                       )}
                     </td>
+                    <td>
+                      <div style={{ fontSize: '0.9rem' }}>
+                        {recipe.author?.fullName || 'Unknown'}
+                        {recipe.author?.role === 'trainer' && (
+                          <span style={{ color: '#1976d2', fontSize: '0.8rem', marginLeft: '4px' }}>
+                            (Trainer)
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>{getStatusBadge(recipe.status)}</td>
                     <td>{formatDate(recipe.createdAt)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
+                        {recipe.status === 'draft' ? (
+                          <button
+                            onClick={() => handlePublishRecipe(recipe._id)}
+                            className="btn btn-success"
+                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            title="Publish Recipe"
+                          >
+                            <Eye size={12} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUnpublishRecipe(recipe._id)}
+                            className="btn btn-warning"
+                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            title="Unpublish Recipe"
+                          >
+                            <EyeOff size={12} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEditRecipe(recipe)}
                           className="btn btn-secondary"

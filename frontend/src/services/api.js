@@ -79,12 +79,24 @@ export const blogsAPI = {
     return api.get(`/blogs?${params.toString()}`);
   },
   getBySlug: (slug) => api.get(`/blogs/${slug}`),
+  // trainer
+  getMyPosts: (page = 1, limit = 10, status = null) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (status) params.append('status', status);
+    return api.get(`/blogs/my-posts?${params.toString()}`);
+  },
   // admin
   adminList: (page = 1, limit = 10) => api.get(`/blogs/admin?page=${page}&limit=${limit}`),
   getById: (id) => api.get(`/blogs/admin/${id}`),
+  // owner/admin access for single post
+  getMineById: (id) => api.get(`/blogs/mine/${id}`),
   create: (data) => api.post('/blogs', data),
   update: (id, data) => api.put(`/blogs/${id}`, data),
   remove: (id) => api.delete(`/blogs/${id}`),
+  publish: (id) => api.put(`/blogs/${id}/publish`),
+  unpublish: (id) => api.put(`/blogs/${id}/unpublish`),
 };
 
 // Comments API
@@ -109,12 +121,40 @@ export const recipesAPI = {
   getBySlug: (slug) => api.get(`/recipes/${slug}`),
   getFavorites: (page = 1, limit = 10) => api.get(`/recipes/favorites?page=${page}&limit=${limit}`),
   toggleFavorite: (id) => api.post(`/recipes/favorites/${id}`),
+  // trainer
+  getMyRecipes: (page = 1, limit = 10, status = null) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (status) params.append('status', status);
+    return api.get(`/recipes/my-recipes?${params.toString()}`);
+  },
   // admin
   adminList: (page = 1, limit = 10) => api.get(`/recipes/admin?page=${page}&limit=${limit}`),
   getById: (id) => api.get(`/recipes/admin/${id}`),
+  // owner/admin access for single recipe
+  getMineById: (id) => api.get(`/recipes/mine/${id}`),
   create: (data) => api.post('/recipes', data),
   update: (id, data) => api.put(`/recipes/${id}`, data),
   remove: (id) => api.delete(`/recipes/${id}`),
+  publish: (id) => api.put(`/recipes/${id}/publish`),
+  unpublish: (id) => api.put(`/recipes/${id}/unpublish`),
+};
+
+// Public Trainers API for Booking
+export const publicTrainersAPI = {
+  list: (page = 1, limit = 10) => api.get(`/users/public-trainers?page=${page}&limit=${limit}`),
+  getById: (id) => api.get(`/users/public-trainers/${id}`),
+};
+
+// Bookings API
+export const bookingsAPI = {
+  create: (trainerId, date) => api.post('/bookings', { trainerId, date }),
+  myBookings: (page = 1, limit = 10) => api.get(`/bookings/my?page=${page}&limit=${limit}`),
+  receiptPdfUrl: (id) => `${API_BASE_URL}/bookings/${id}/receipt`,
+  // Trainer
+  myClientsCalendar: (year, month) => api.get(`/bookings/my-clients/calendar?year=${year}&month=${month}`),
+  myClientsByDate: (date) => api.get(`/bookings/my-clients/by-date?date=${encodeURIComponent(date)}`),
 };
 
 export default api;

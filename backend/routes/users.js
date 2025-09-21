@@ -5,6 +5,55 @@ const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// ===== PUBLIC TRAINER BROWSING =====
+// @route   GET /api/users/public-trainers
+// @desc    Public: list approved trainers with basic info
+// @access  Public
+router.get('/public-trainers', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = { role: 'trainer', approvalStatus: 'approved' };
+    const [trainers, total] = await Promise.all([
+      User.find(filter)
+        .select('fullName bio specialties sessionRate availability profileImage')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter)
+    ]);
+
+    res.json({
+      trainers,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+    });
+  } catch (error) {
+    console.error('Public list trainers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/users/public-trainers/:id
+// @desc    Public: get single approved trainer by id
+// @access  Public
+router.get('/public-trainers/:id', async (req, res) => {
+  try {
+    const trainer = await User.findById(req.params.id)
+      .select('fullName bio specialties sessionRate availability profileImage approvalStatus role');
+    if (!trainer || trainer.role !== 'trainer' || trainer.approvalStatus !== 'approved') {
+      return res.status(404).json({ message: 'Trainer not found' });
+    }
+    res.json({ trainer });
+  } catch (error) {
+    console.error('Public get trainer error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/users
 // @desc    Get all users (Admin only)
 // @access  Private/Admin
@@ -135,6 +184,331 @@ router.put('/me', [
   }
 });
 
+// ===== TRAINER ROUTES (must come before /:id routes) =====
+
+// @route   GET /api/users/trainers/pending
+// @desc    Get all pending trainer registrations (Admin only)
+// @access  Private/Admin
+router.get('/trainers/pending', auth, adminAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const trainers = await User.find({ 
+      role: 'trainer', 
+      approvalStatus: 'pending' 
+    })
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments({ 
+      role: 'trainer', 
+      approvalStatus: 'pending' 
+    });
+
+    res.json({
+      trainers,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Get pending trainers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/users/trainers
+// @desc    Get all trainers with optional status filter (Admin only)
+// @access  Private/Admin
+router.get('/trainers', auth, adminAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const status = req.query.status;
+
+    let filter = { role: 'trainer' };
+    if (status && status !== 'all') {
+      filter.approvalStatus = status;
+    }
+
+    const trainers = await User.find(filter)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      trainers,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Get trainers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/users/trainers
+// @desc    Create a new trainer (Admin only)
+// @access  Private/Admin
+router.post('/trainers', [
+  auth,
+  adminAuth,
+  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
+  body('email').isEmail().withMessage('Please enter a valid email'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('age').isInt({ min: 13, max: 100 }).withMessage('Age must be between 13 and 100'),
+  body('weight').isFloat({ min: 30, max: 300 }).withMessage('Weight must be between 30 and 300 kg'),
+  body('height').isFloat({ min: 100, max: 250 }).withMessage('Height must be between 100 and 250 cm'),
+  body('fitnessGoal').isIn(['weight loss', 'muscle gain', 'endurance', 'flexibility']).withMessage('Invalid fitness goal'),
+  body('experienceLevel').isIn(['beginner', 'intermediate', 'advanced']).withMessage('Invalid experience level'),
+  body('bio').trim().isLength({ min: 10 }).withMessage('Bio must be at least 10 characters'),
+  body('specialties').isArray({ min: 1 }).withMessage('At least one specialty is required'),
+  body('specialties.*').isIn(['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding']).withMessage('Invalid specialty'),
+  body('sessionRate').isFloat({ min: 0 }).withMessage('Session rate must be a positive number'),
+  body('sessionCapacity').optional().isInt({ min: 1 }).withMessage('Session capacity must be at least 1'),
+  body('availability.days').isArray({ min: 1 }).withMessage('At least one available day is required'),
+  body('availability.days.*').isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
+  body('availability.timeSlots').isArray({ min: 1 }).withMessage('At least one time slot is required'),
+  body('profileImage').optional().isString().withMessage('Profile image must be a string')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { fullName, email, password, age, weight, height, fitnessGoal, experienceLevel, bio, specialties, sessionRate, sessionCapacity, availability, profileImage, approvalStatus } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+
+    // Create new trainer
+    const trainer = new User({
+      fullName,
+      email,
+      password,
+      age,
+      weight,
+      height,
+      fitnessGoal,
+      experienceLevel,
+      role: 'trainer',
+      bio,
+      specialties,
+      sessionRate,
+      sessionCapacity: sessionCapacity || 1,
+      availability,
+      profileImage: profileImage || '',
+      approvalStatus: approvalStatus || 'approved'
+    });
+
+    await trainer.save();
+
+    res.status(201).json({
+      message: 'Trainer created successfully',
+      trainer: {
+        id: trainer._id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        role: trainer.role,
+        approvalStatus: trainer.approvalStatus
+      }
+    });
+  } catch (error) {
+    console.error('Create trainer error:', error);
+    res.status(500).json({ message: 'Server error during trainer creation' });
+  }
+});
+
+// @route   PUT /api/users/trainers/:id/approve
+// @desc    Approve trainer registration (Admin only)
+// @access  Private/Admin
+router.put('/trainers/:id/approve', auth, adminAuth, async (req, res) => {
+  try {
+    const trainer = await User.findById(req.params.id);
+    
+    if (!trainer) {
+      return res.status(404).json({ message: 'Trainer not found' });
+    }
+
+    if (trainer.role !== 'trainer') {
+      return res.status(400).json({ message: 'User is not a trainer' });
+    }
+
+    if (trainer.approvalStatus !== 'pending') {
+      return res.status(400).json({ message: 'Trainer registration is not pending' });
+    }
+
+    trainer.approvalStatus = 'approved';
+    trainer.approvedAt = new Date();
+    trainer.rejectedAt = undefined;
+
+    await trainer.save();
+
+    res.json({ 
+      message: 'Trainer approved successfully',
+      trainer: {
+        id: trainer._id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        approvalStatus: trainer.approvalStatus,
+        approvedAt: trainer.approvedAt
+      }
+    });
+  } catch (error) {
+    console.error('Approve trainer error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/users/trainers/:id/reject
+// @desc    Reject trainer registration (Admin only)
+// @access  Private/Admin
+router.put('/trainers/:id/reject', auth, adminAuth, async (req, res) => {
+  try {
+    const trainer = await User.findById(req.params.id);
+    
+    if (!trainer) {
+      return res.status(404).json({ message: 'Trainer not found' });
+    }
+
+    if (trainer.role !== 'trainer') {
+      return res.status(400).json({ message: 'User is not a trainer' });
+    }
+
+    if (trainer.approvalStatus !== 'pending') {
+      return res.status(400).json({ message: 'Trainer registration is not pending' });
+    }
+
+    trainer.approvalStatus = 'rejected';
+    trainer.rejectedAt = new Date();
+    trainer.approvedAt = undefined;
+
+    await trainer.save();
+
+    res.json({ 
+      message: 'Trainer rejected successfully',
+      trainer: {
+        id: trainer._id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        approvalStatus: trainer.approvalStatus,
+        rejectedAt: trainer.rejectedAt
+      }
+    });
+  } catch (error) {
+    console.error('Reject trainer error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/users/trainers/:id
+// @desc    Update trainer (Admin only)
+// @access  Private/Admin
+router.put('/trainers/:id', [
+  auth,
+  adminAuth,
+  body('fullName').optional().trim().isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
+  body('email').optional().isEmail().withMessage('Please enter a valid email'),
+  body('bio').optional().trim().isLength({ min: 10 }).withMessage('Bio must be at least 10 characters'),
+  body('specialties').optional().isArray({ min: 1 }).withMessage('At least one specialty is required'),
+  body('specialties.*').optional().isIn(['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding']).withMessage('Invalid specialty'),
+  body('sessionRate').optional().isFloat({ min: 0 }).withMessage('Session rate must be a positive number'),
+  body('sessionCapacity').optional().isInt({ min: 1 }).withMessage('Session capacity must be at least 1'),
+  body('availability.days').optional().isArray({ min: 1 }).withMessage('At least one available day is required'),
+  body('availability.days.*').optional().isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
+  body('availability.timeSlots').optional().isArray({ min: 1 }).withMessage('At least one time slot is required'),
+  body('profileImage').optional().isString().withMessage('Profile image must be a string')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const trainer = await User.findById(req.params.id);
+    if (!trainer) {
+      return res.status(404).json({ message: 'Trainer not found' });
+    }
+
+    if (trainer.role !== 'trainer') {
+      return res.status(400).json({ message: 'User is not a trainer' });
+    }
+
+    // Email uniqueness check if changing email
+    if (req.body.email && req.body.email !== trainer.email) {
+      const exists = await User.findOne({ email: req.body.email });
+      if (exists) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+    }
+
+    // Update fields
+    if (req.body.fullName !== undefined) trainer.fullName = req.body.fullName;
+    if (req.body.email !== undefined) trainer.email = req.body.email;
+    if (req.body.bio !== undefined) trainer.bio = req.body.bio;
+    if (req.body.specialties !== undefined) trainer.specialties = req.body.specialties;
+    if (req.body.sessionRate !== undefined) trainer.sessionRate = req.body.sessionRate;
+    if (req.body.sessionCapacity !== undefined) trainer.sessionCapacity = req.body.sessionCapacity;
+    if (req.body.availability !== undefined) trainer.availability = req.body.availability;
+    if (req.body.profileImage !== undefined) trainer.profileImage = req.body.profileImage;
+
+    await trainer.save();
+
+    res.json({
+      message: 'Trainer updated successfully',
+      trainer: {
+        id: trainer._id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        role: trainer.role,
+        approvalStatus: trainer.approvalStatus
+      }
+    });
+  } catch (error) {
+    console.error('Update trainer error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/users/trainers/:id
+// @desc    Delete trainer (Admin only)
+// @access  Private/Admin
+router.delete('/trainers/:id', auth, adminAuth, async (req, res) => {
+  try {
+    const trainer = await User.findById(req.params.id);
+    
+    if (!trainer) {
+      return res.status(404).json({ message: 'Trainer not found' });
+    }
+
+    if (trainer.role !== 'trainer') {
+      return res.status(400).json({ message: 'User is not a trainer' });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Trainer deleted successfully' });
+  } catch (error) {
+    console.error('Delete trainer error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ===== GENERIC USER ROUTES (must come after specific routes) =====
+
 // @route   GET /api/users/:id
 // @desc    Get user by ID (Admin only)
 // @access  Private/Admin
@@ -241,158 +615,6 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/users/trainers/pending
-// @desc    Get all pending trainer registrations (Admin only)
-// @access  Private/Admin
-router.get('/trainers/pending', auth, adminAuth, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const trainers = await User.find({ 
-      role: 'trainer', 
-      approvalStatus: 'pending' 
-    })
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await User.countDocuments({ 
-      role: 'trainer', 
-      approvalStatus: 'pending' 
-    });
-
-    res.json({
-      trainers,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
-    });
-  } catch (error) {
-    console.error('Get pending trainers error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   PUT /api/users/trainers/:id/approve
-// @desc    Approve trainer registration (Admin only)
-// @access  Private/Admin
-router.put('/trainers/:id/approve', auth, adminAuth, async (req, res) => {
-  try {
-    const trainer = await User.findById(req.params.id);
-    
-    if (!trainer) {
-      return res.status(404).json({ message: 'Trainer not found' });
-    }
-
-    if (trainer.role !== 'trainer') {
-      return res.status(400).json({ message: 'User is not a trainer' });
-    }
-
-    if (trainer.approvalStatus !== 'pending') {
-      return res.status(400).json({ message: 'Trainer registration is not pending' });
-    }
-
-    trainer.approvalStatus = 'approved';
-    trainer.approvedAt = new Date();
-    trainer.rejectedAt = undefined;
-
-    await trainer.save();
-
-    res.json({ 
-      message: 'Trainer approved successfully',
-      trainer: {
-        id: trainer._id,
-        fullName: trainer.fullName,
-        email: trainer.email,
-        approvalStatus: trainer.approvalStatus,
-        approvedAt: trainer.approvedAt
-      }
-    });
-  } catch (error) {
-    console.error('Approve trainer error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   PUT /api/users/trainers/:id/reject
-// @desc    Reject trainer registration (Admin only)
-// @access  Private/Admin
-router.put('/trainers/:id/reject', auth, adminAuth, async (req, res) => {
-  try {
-    const trainer = await User.findById(req.params.id);
-    
-    if (!trainer) {
-      return res.status(404).json({ message: 'Trainer not found' });
-    }
-
-    if (trainer.role !== 'trainer') {
-      return res.status(400).json({ message: 'User is not a trainer' });
-    }
-
-    if (trainer.approvalStatus !== 'pending') {
-      return res.status(400).json({ message: 'Trainer registration is not pending' });
-    }
-
-    trainer.approvalStatus = 'rejected';
-    trainer.rejectedAt = new Date();
-    trainer.approvedAt = undefined;
-
-    await trainer.save();
-
-    res.json({ 
-      message: 'Trainer rejected successfully',
-      trainer: {
-        id: trainer._id,
-        fullName: trainer.fullName,
-        email: trainer.email,
-        approvalStatus: trainer.approvalStatus,
-        rejectedAt: trainer.rejectedAt
-      }
-    });
-  } catch (error) {
-    console.error('Reject trainer error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/users/trainers
-// @desc    Get all approved trainers (Admin only)
-// @access  Private/Admin
-router.get('/trainers', auth, adminAuth, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const trainers = await User.find({ 
-      role: 'trainer', 
-      approvalStatus: 'approved' 
-    })
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await User.countDocuments({ 
-      role: 'trainer', 
-      approvalStatus: 'approved' 
-    });
-
-    res.json({
-      trainers,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
-    });
-  } catch (error) {
-    console.error('Get trainers error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

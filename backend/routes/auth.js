@@ -101,9 +101,6 @@ router.post('/register-trainer', [
   body('specialties').isArray({ min: 1 }).withMessage('At least one specialty is required'),
   body('specialties.*').isIn(['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding']).withMessage('Invalid specialty'),
   body('sessionRate').isFloat({ min: 0 }).withMessage('Session rate must be a positive number'),
-  body('sessionCapacity').isInt({ min: 1 }).withMessage('Session capacity must be at least 1'),
-  body('availability.days').isArray({ min: 1 }).withMessage('At least one available day is required'),
-  body('availability.days.*').isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
   body('availability.timeSlots').isArray({ min: 1 }).withMessage('At least one time slot is required'),
   body('profileImage').optional().isString().withMessage('Profile image must be a string')
 ], async (req, res) => {
@@ -120,7 +117,6 @@ router.post('/register-trainer', [
       bio, 
       specialties, 
       sessionRate,
-      sessionCapacity,
       availability, 
       profileImage 
     } = req.body;
@@ -140,7 +136,6 @@ router.post('/register-trainer', [
       bio,
       specialties,
       sessionRate,
-      sessionCapacity,
       availability,
       profileImage: profileImage || '',
       approvalStatus: 'pending',
