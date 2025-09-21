@@ -19,6 +19,8 @@ import RecipeEditor from './pages/RecipeEditor';
 import BookTrainer from './pages/BookTrainer';
 // Removed TrainerRecipes list page; dashboard handles management
 import './App.css';
+import EventsList from './pages/EventsList';
+import EventDetail from './pages/EventDetail';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false, trainerOnly = false }) => {
@@ -117,6 +119,14 @@ function AppContent() {
           <Route 
             path="/recipes/:slug" 
             element={<RecipeDetail />} 
+          />
+          <Route 
+            path="/events" 
+            element={<EventsList />} 
+          />
+          <Route 
+            path="/events/:id" 
+            element={<EventDetail />} 
           />
           <Route
             path="/book-trainer"

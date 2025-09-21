@@ -22,6 +22,7 @@ app.use('/api/blogs', require('./routes/blogs'));
 app.use('/api/comments', require('./routes/comments'));
 app.use('/api/recipes', require('./routes/recipes'));
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/events', require('./routes/events'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
@@ -40,3 +41,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+

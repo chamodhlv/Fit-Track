@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI, blogsAPI, recipesAPI } from '../services/api';
+import { usersAPI, blogsAPI, recipesAPI, eventsAPI } from '../services/api';
 import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -27,12 +27,6 @@ const AdminDashboard = () => {
     experienceLevel: 'beginner'
   });
 
-  // Trainer approval state
-  const [trainerLoading, setTrainerLoading] = useState(true);
-  const [pendingTrainers, setPendingTrainers] = useState([]);
-  const [trainerCurrentPage, setTrainerCurrentPage] = useState(1);
-  const [trainerTotalPages, setTrainerTotalPages] = useState(1);
-  const [processingTrainer, setProcessingTrainer] = useState(null);
 
   // Trainer management state
   const [allTrainersLoading, setAllTrainersLoading] = useState(true);
@@ -83,6 +77,23 @@ const AdminDashboard = () => {
   const [recipeCurrentPage, setRecipeCurrentPage] = useState(1);
   const [recipeTotalPages, setRecipeTotalPages] = useState(1);
 
+  // Events management state
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [events, setEvents] = useState([]);
+  const [eventsCurrentPage, setEventsCurrentPage] = useState(1);
+  const [eventsTotalPages, setEventsTotalPages] = useState(1);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [showEditEvent, setShowEditEvent] = useState(false);
+  const [editEventForm, setEditEventForm] = useState({ name: '', location: '', date: '', time: '', description: '', image: '' });
+  const [editEventGuests, setEditEventGuests] = useState([{ name: '', qualification: '' }]);
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [newEventForm, setNewEventForm] = useState({ name: '', location: '', date: '', time: '', description: '', image: '' });
+  const [newEventGuests, setNewEventGuests] = useState([{ name: '', qualification: '' }]);
+
+  // View trainer state
+  const [viewingTrainer, setViewingTrainer] = useState(null);
+  const [showViewTrainer, setShowViewTrainer] = useState(false);
+
   const availableCategories = [
     'Strength Training',
     'Yoga & Flexibility',
@@ -105,9 +116,6 @@ const AdminDashboard = () => {
     fetchUsers();
   }, [currentPage]);
 
-  useEffect(() => {
-    fetchPendingTrainers();
-  }, [trainerCurrentPage]);
 
   useEffect(() => {
     fetchAllTrainers();
@@ -120,6 +128,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchRecipes();
   }, [recipeCurrentPage]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [eventsCurrentPage]);
 
   const fetchUsers = async () => {
     try {
@@ -134,29 +146,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchPendingTrainers = async () => {
-    try {
-      setTrainerLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/trainers/pending?page=${trainerCurrentPage}&limit=10`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        setPendingTrainers(data.trainers || []);
-        setTrainerTotalPages(data.totalPages || 1);
-      } else {
-        toast.error('Failed to fetch pending trainers');
-      }
-    } catch (error) {
-      toast.error('Failed to fetch pending trainers');
-    } finally {
-      setTrainerLoading(false);
-    }
-  };
 
   // Trainer management functions
   const fetchAllTrainers = async () => {
@@ -243,6 +232,11 @@ const AdminDashboard = () => {
         toast.error('Failed to delete trainer');
       }
     }
+  };
+
+  const handleViewTrainer = (trainer) => {
+    setViewingTrainer(trainer);
+    setShowViewTrainer(true);
   };
 
   const handleCreateTrainer = async (e) => {
@@ -355,65 +349,118 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleApproveTrainer = async (trainerId) => {
-    if (processingTrainer) return;
-    
-    setProcessingTrainer(trainerId);
+  // Events: list
+  const fetchEvents = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/trainers/${trainerId}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast.success('Trainer approved successfully');
-        fetchPendingTrainers(); // Refresh the list
-      } else {
-        toast.error(data.message || 'Failed to approve trainer');
-      }
+      setEventsLoading(true);
+      const res = await eventsAPI.list(eventsCurrentPage, 10);
+      setEvents(res.data.events || []);
+      setEventsTotalPages(res.data.totalPages || 1);
     } catch (error) {
-      toast.error('Failed to approve trainer');
+      toast.error('Failed to fetch events');
     } finally {
-      setProcessingTrainer(null);
+      setEventsLoading(false);
     }
   };
 
-  const handleRejectTrainer = async (trainerId) => {
-    if (processingTrainer) return;
-    
-    if (!window.confirm('Are you sure you want to reject this trainer application? This action cannot be undone.')) {
-      return;
-    }
-    
-    setProcessingTrainer(trainerId);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/trainers/${trainerId}/reject`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+  // Helpers to parse guests
+  const parseGuests = (guestsText) => {
+    return (guestsText || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name, qualification] = line.split(' - ').map((s) => s?.trim() || '');
+        return { name, qualification };
       });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast.success('Trainer application rejected');
-        fetchPendingTrainers(); // Refresh the list
-      } else {
-        toast.error(data.message || 'Failed to reject trainer');
-      }
+  };
+
+  // Events: create
+  const handleCreateEvent = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: newEventForm.name,
+        location: newEventForm.location,
+        date: newEventForm.date,
+        time: newEventForm.time,
+        guests: newEventGuests
+          .filter(g => (g.name || '').trim())
+          .map(g => ({ name: g.name.trim(), qualification: (g.qualification || '').trim() })),
+        description: newEventForm.description,
+        image: newEventForm.image,
+      };
+      await eventsAPI.create(payload);
+      toast.success('Event created successfully');
+      setShowAddEvent(false);
+      setNewEventForm({ name: '', location: '', date: '', time: '', description: '', image: '' });
+      setNewEventGuests([{ name: '', qualification: '' }]);
+      if (eventsCurrentPage !== 1) setEventsCurrentPage(1);
+      fetchEvents();
     } catch (error) {
-      toast.error('Failed to reject trainer');
-    } finally {
-      setProcessingTrainer(null);
+      const msg = error?.response?.data?.message || 'Failed to create event';
+      toast.error(msg);
     }
   };
+
+  const handleEditEvent = (ev) => {
+    setEditingEventId(ev._id);
+    setEditEventForm({
+      name: ev.name || '',
+      location: ev.location || '',
+      date: ev.date ? new Date(ev.date).toISOString().split('T')[0] : '',
+      time: ev.time || '',
+      description: ev.description || '',
+      image: ev.image || '',
+    });
+    setEditEventGuests(
+      Array.isArray(ev.guests) && ev.guests.length > 0
+        ? ev.guests.map(g => ({ name: g.name || '', qualification: g.qualification || '' }))
+        : [{ name: '', qualification: '' }]
+    );
+    setShowEditEvent(true);
+  };
+
+  // Events: update
+  const handleUpdateEvent = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: editEventForm.name,
+        location: editEventForm.location,
+        date: editEventForm.date,
+        time: editEventForm.time,
+        guests: editEventGuests
+          .filter(g => (g.name || '').trim())
+          .map(g => ({ name: g.name.trim(), qualification: (g.qualification || '').trim() })),
+        description: editEventForm.description,
+        image: editEventForm.image,
+      };
+      await eventsAPI.update(editingEventId, payload);
+      toast.success('Event updated successfully');
+      setShowEditEvent(false);
+      setEditingEventId(null);
+      setEditEventForm({ name: '', location: '', date: '', time: '', description: '', image: '' });
+      setEditEventGuests([{ name: '', qualification: '' }]);
+      fetchEvents();
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Failed to update event';
+      toast.error(msg);
+    }
+  };
+
+  // Events: delete
+  const handleDeleteEvent = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+    try {
+      await eventsAPI.remove(id);
+      toast.success('Event deleted successfully');
+      fetchEvents();
+    } catch (error) {
+      toast.error('Failed to delete event');
+    }
+  };
+
 
   // Blog posts: edit init
   const handleEditPost = (post) => {
@@ -869,6 +916,392 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Events Management Section */}
+        <div className="section-header" style={{ marginTop: '2rem' }}>
+          <h2 className="section-title">
+            <FileText size={24} style={{ marginRight: '8px' }} />
+            Event Management
+          </h2>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowAddEvent(true)}
+          >
+            <Plus size={16} style={{ marginRight: '4px' }} />
+            Add New Event
+          </button>
+        </div>
+
+        {eventsLoading ? (
+          <div className="loading"><div className="spinner"></div></div>
+        ) : events.length === 0 ? (
+          <div className="card text-center">
+            <h3>No events found</h3>
+            <p>Create your first event using the button above.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Location</th>
+                  <th>Date & time</th>
+                  <th>Attendees</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((ev) => (
+                  <tr key={ev._id}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{ev.name}</div>
+                    </td>
+                    <td>
+                      <div>{ev.location}</div>
+                    </td>
+                    <td>
+                      <div>
+                        {ev.date && (
+                          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '2px' }}>
+                            {new Date(ev.date).toLocaleDateString()}
+                          </div>
+                        )}
+                        {ev.time && (
+                          <div style={{ fontSize: '0.9rem', fontWeight: '500' }}>
+                            {ev.time}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: '600', textAlign: 'center' }}>{ev.attendeeCount}</div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button className="btn btn-secondary" title="Edit" onClick={() => handleEditEvent(ev)}><Edit size={12} /></button>
+                        <button className="btn btn-danger" title="Delete" onClick={() => handleDeleteEvent(ev._id)}><Trash2 size={12} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Events Pagination */}
+        {eventsTotalPages > 1 && (
+          <div className="pagination">
+            <button onClick={() => setEventsCurrentPage((p) => Math.max(p - 1, 1))} disabled={eventsCurrentPage === 1}>Previous</button>
+            {Array.from({ length: eventsTotalPages }, (_, i) => i + 1).map((p) => (
+              <button key={p} onClick={() => setEventsCurrentPage(p)} className={eventsCurrentPage === p ? 'active' : ''}>{p}</button>
+            ))}
+            <button onClick={() => setEventsCurrentPage((p) => Math.min(p + 1, eventsTotalPages))} disabled={eventsCurrentPage === eventsTotalPages}>Next</button>
+          </div>
+        )}
+
+        {/* Add Event Modal */}
+        {showAddEvent && (
+          <div className="modal-overlay" onClick={() => setShowAddEvent(false)}>
+            <div className="modal-content event-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Create New Event</h3>
+                <button className="modal-close" onClick={() => setShowAddEvent(false)}>×</button>
+              </div>
+              <form onSubmit={handleCreateEvent} className="modal-body">
+                {/* Basic Information Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Basic Information</div>
+                  <div className="form-group">
+                    <label>Event Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-input" 
+                      value={newEventForm.name} 
+                      onChange={(e) => setNewEventForm({ ...newEventForm, name: e.target.value })} 
+                      placeholder="Enter event name" 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Location *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-input" 
+                      value={newEventForm.location} 
+                      onChange={(e) => setNewEventForm({ ...newEventForm, location: e.target.value })} 
+                      placeholder="Enter location" 
+                    />
+                  </div>
+                  <div className="event-datetime-row">
+                    <div className="form-group">
+                      <label>Event Date *</label>
+                      <input 
+                        type="date" 
+                        required 
+                        className="form-input" 
+                        value={newEventForm.date} 
+                        onChange={(e) => setNewEventForm({ ...newEventForm, date: e.target.value })} 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Starting Time *</label>
+                      <input 
+                        type="time" 
+                        required 
+                        className="form-input" 
+                        value={newEventForm.time} 
+                        onChange={(e) => setNewEventForm({ ...newEventForm, time: e.target.value })} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Special Guests Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Special Guests</div>
+                  {newEventGuests.map((g, idx) => (
+                    <div key={idx} className="event-guest-row">
+                      <div className="event-guest-inputs">
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Guest name"
+                          value={g.name}
+                          onChange={(e) => {
+                            const next = [...newEventGuests];
+                            next[idx].name = e.target.value;
+                            setNewEventGuests(next);
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Qualification (e.g., Nutritionist)"
+                          value={g.qualification}
+                          onChange={(e) => {
+                            const next = [...newEventGuests];
+                            next[idx].qualification = e.target.value;
+                            setNewEventGuests(next);
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="event-guest-remove"
+                        onClick={() => setNewEventGuests(prev => prev.filter((_, i) => i !== idx))}
+                        disabled={newEventGuests.length === 1}
+                        title="Remove guest"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="event-add-guest"
+                    onClick={() => setNewEventGuests(prev => [...prev, { name: '', qualification: '' }])}
+                  >
+                    Add another guest
+                  </button>
+                  <small className="event-form-hint">Leave empty if no special guests are attending</small>
+                </div>
+
+                {/* Event Image Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Event Image</div>
+                  <div className="form-group">
+                    <label>Image URL</label>
+                    <input
+                      type="url"
+                      className="form-input"
+                      placeholder="https://example.com/event.jpg"
+                      value={newEventForm.image}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, image: e.target.value })}
+                    />
+                    {newEventForm.image && (
+                      <img src={newEventForm.image} alt="Event preview" className="event-image-preview" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Event Description Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Event Description</div>
+                  <div className="form-group">
+                    <label>Description *</label>
+                    <textarea 
+                      required 
+                      className="form-textarea event-description-field" 
+                      rows="5" 
+                      value={newEventForm.description} 
+                      onChange={(e) => setNewEventForm({ ...newEventForm, description: e.target.value })} 
+                      placeholder="Describe what this event is about, what attendees can expect, and any important details..."
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowAddEvent(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Create Event</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Event Modal */}
+        {showEditEvent && (
+          <div className="modal-overlay" onClick={() => setShowEditEvent(false)}>
+            <div className="modal-content event-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Edit Event</h3>
+                <button className="modal-close" onClick={() => setShowEditEvent(false)}>×</button>
+              </div>
+              <form onSubmit={handleUpdateEvent} className="modal-body">
+                {/* Basic Information Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Basic Information</div>
+                  <div className="form-group">
+                    <label>Event Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-input" 
+                      value={editEventForm.name} 
+                      onChange={(e) => setEditEventForm({ ...editEventForm, name: e.target.value })} 
+                      placeholder="Enter event name" 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Location *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-input" 
+                      value={editEventForm.location} 
+                      onChange={(e) => setEditEventForm({ ...editEventForm, location: e.target.value })} 
+                      placeholder="Enter location" 
+                    />
+                  </div>
+                  <div className="event-datetime-row">
+                    <div className="form-group">
+                      <label>Event Date *</label>
+                      <input 
+                        type="date" 
+                        required 
+                        className="form-input" 
+                        value={editEventForm.date} 
+                        onChange={(e) => setEditEventForm({ ...editEventForm, date: e.target.value })} 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Starting Time *</label>
+                      <input 
+                        type="time" 
+                        required 
+                        className="form-input" 
+                        value={editEventForm.time} 
+                        onChange={(e) => setEditEventForm({ ...editEventForm, time: e.target.value })} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Special Guests Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Special Guests</div>
+                  {editEventGuests.map((g, idx) => (
+                    <div key={idx} className="event-guest-row">
+                      <div className="event-guest-inputs">
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Guest name"
+                          value={g.name}
+                          onChange={(e) => {
+                            const next = [...editEventGuests];
+                            next[idx].name = e.target.value;
+                            setEditEventGuests(next);
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Qualification (e.g., Nutritionist)"
+                          value={g.qualification}
+                          onChange={(e) => {
+                            const next = [...editEventGuests];
+                            next[idx].qualification = e.target.value;
+                            setEditEventGuests(next);
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="event-guest-remove"
+                        onClick={() => setEditEventGuests(prev => prev.filter((_, i) => i !== idx))}
+                        disabled={editEventGuests.length === 1}
+                        title="Remove guest"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="event-add-guest"
+                    onClick={() => setEditEventGuests(prev => [...prev, { name: '', qualification: '' }])}
+                  >
+                    Add another guest
+                  </button>
+                  <small className="event-form-hint">Leave empty if no special guests are attending</small>
+                </div>
+
+                {/* Event Image Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Event Image</div>
+                  <div className="form-group">
+                    <label>Image URL</label>
+                    <input
+                      type="url"
+                      className="form-input"
+                      placeholder="https://example.com/event.jpg"
+                      value={editEventForm.image}
+                      onChange={(e) => setEditEventForm({ ...editEventForm, image: e.target.value })}
+                    />
+                    {editEventForm.image && (
+                      <img src={editEventForm.image} alt="Event preview" className="event-image-preview" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Event Description Section */}
+                <div className="event-form-section">
+                  <div className="event-form-section-title">Event Description</div>
+                  <div className="form-group">
+                    <label>Description *</label>
+                    <textarea 
+                      required 
+                      className="form-textarea event-description-field" 
+                      rows="5" 
+                      value={editEventForm.description} 
+                      onChange={(e) => setEditEventForm({ ...editEventForm, description: e.target.value })} 
+                      placeholder="Describe what this event is about, what attendees can expect, and any important details..."
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowEditEvent(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Update Event</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Add Member Modal */}
         {showAddMember && (
           <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
@@ -955,145 +1388,6 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Trainer Approval Section */}
-        <div className="section-header" style={{ marginTop: '2rem' }}>
-          <h2 className="section-title">
-            <UserCheck size={24} style={{ marginRight: '8px' }} />
-            Trainer Approval
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-            <Clock size={16} />
-            {pendingTrainers.length} pending applications
-          </div>
-        </div>
-
-        {trainerLoading ? (
-          <div className="loading">
-            <div className="spinner"></div>
-          </div>
-        ) : pendingTrainers.length === 0 ? (
-          <div className="card text-center">
-            <UserCheck size={48} style={{ margin: '0 auto 1rem', color: '#ccc' }} />
-            <h3>No pending trainer applications</h3>
-            <p>All trainer applications have been processed.</p>
-          </div>
-        ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Trainer</th>
-                  <th>Contact</th>
-                  <th>Specialties</th>
-                  <th>Rate</th>
-                  <th>Applied</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingTrainers.map((trainer) => (
-                  <tr key={trainer._id}>
-                    <td>
-                      <div>
-                        <div style={{ fontWeight: '600' }}>{trainer.fullName}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                          {trainer.bio?.substring(0, 60)}...
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div>{trainer.email}</div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                        {trainer.specialties?.map((specialty, index) => (
-                          <span 
-                            key={index}
-                            style={{
-                              background: '#e3f2fd',
-                              color: '#1976d2',
-                              padding: '0.125rem 0.375rem',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
-                              fontWeight: '500'
-                            }}
-                          >
-                            {specialty}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: '600' }}>LKR {trainer.sessionRate}/Per Session</div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '0.9rem' }}>
-                        {formatDate(trainer.createdAt)}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          onClick={() => handleApproveTrainer(trainer._id)}
-                          className="btn btn-success"
-                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                          disabled={processingTrainer === trainer._id}
-                          title="Approve Trainer"
-                        >
-                          {processingTrainer === trainer._id ? (
-                            'Processing...'
-                          ) : (
-                            <>
-                              <UserCheck size={12} style={{ marginRight: '2px' }} />
-                              Approve
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleRejectTrainer(trainer._id)}
-                          className="btn btn-danger"
-                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                          disabled={processingTrainer === trainer._id}
-                          title="Reject Trainer"
-                        >
-                          <UserX size={12} style={{ marginRight: '2px' }} />
-                          Reject
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Trainer Pagination */}
-        {trainerTotalPages > 1 && (
-          <div className="pagination">
-            <button
-              onClick={() => setTrainerCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={trainerCurrentPage === 1}
-            >
-              Previous
-            </button>
-            {Array.from({ length: trainerTotalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setTrainerCurrentPage(page)}
-                className={trainerCurrentPage === page ? 'active' : ''}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setTrainerCurrentPage(prev => Math.min(prev + 1, trainerTotalPages))}
-              disabled={trainerCurrentPage === trainerTotalPages}
-            >
-              Next
-            </button>
-          </div>
-        )}
 
         {/* Trainer Management Section */}
         <div className="section-header" style={{ marginTop: '2rem' }}>
@@ -1351,25 +1645,23 @@ const AdminDashboard = () => {
                         ) : (
                           <>
                             {trainer.approvalStatus === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleTrainerStatusChange(trainer._id, 'approved')}
-                                  className="btn btn-success"
-                                  style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                  title="Approve"
-                                >
-                                  <UserCheck size={12} />
-                                </button>
-                                <button
-                                  onClick={() => handleTrainerStatusChange(trainer._id, 'rejected')}
-                                  className="btn btn-warning"
-                                  style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                  title="Reject"
-                                >
-                                  <UserX size={12} />
-                                </button>
-                              </>
+                              <button
+                                onClick={() => handleTrainerStatusChange(trainer._id, 'approved')}
+                                className="btn btn-success"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                title="Approve"
+                              >
+                                <UserCheck size={12} />
+                              </button>
                             )}
+                            <button
+                              onClick={() => handleViewTrainer(trainer)}
+                              className="btn btn-info"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                              title="View Profile"
+                            >
+                              <Eye size={12} />
+                            </button>
                             <button
                               onClick={() => handleEditTrainer(trainer)}
                               className="btn btn-secondary"
@@ -1764,6 +2056,111 @@ const AdminDashboard = () => {
                   <button type="submit" className="btn btn-primary">Create Post</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* View Trainer Modal */}
+        {showViewTrainer && viewingTrainer && (
+          <div className="modal-overlay" onClick={() => setShowViewTrainer(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Trainer Profile Details</h3>
+                <button className="modal-close" onClick={() => setShowViewTrainer(false)}>×</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Full Name</label>
+                    <div className="form-display">{viewingTrainer.fullName}</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email</label>
+                    <div className="form-display">{viewingTrainer.email}</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Session Rate</label>
+                    <div className="form-display">LKR {viewingTrainer.sessionRate}/Per Session</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <div className="form-display">
+                      <span className={`status-badge ${viewingTrainer.approvalStatus}`}>
+                        {viewingTrainer.approvalStatus === 'approved' ? 'Approved' : 
+                         viewingTrainer.approvalStatus === 'pending' ? 'Pending' : 'Rejected'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Bio</label>
+                  <div className="form-display" style={{ whiteSpace: 'pre-wrap' }}>{viewingTrainer.bio}</div>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Specialties</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    {viewingTrainer.specialties?.map((specialty, index) => (
+                      <span 
+                        key={index}
+                        style={{
+                          display: 'inline-block',
+                          backgroundColor: '#e3f2fd',
+                          color: '#1976d2',
+                          padding: '4px 12px',
+                          borderRadius: '12px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {specialty}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {viewingTrainer.profileImage && (
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label">Profile Image</label>
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <img 
+                        src={viewingTrainer.profileImage} 
+                        alt="Trainer Profile" 
+                        style={{ 
+                          maxWidth: '200px', 
+                          maxHeight: '200px', 
+                          borderRadius: '8px',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Age</label>
+                    <div className="form-display">{viewingTrainer.age} years</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Weight</label>
+                    <div className="form-display">{viewingTrainer.weight} kg</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Height</label>
+                    <div className="form-display">{viewingTrainer.height} cm</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Joined</label>
+                    <div className="form-display">{formatDate(viewingTrainer.createdAt)}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowViewTrainer(false)}>Close</button>
+              </div>
             </div>
           </div>
         )}
