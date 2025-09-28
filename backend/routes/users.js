@@ -21,7 +21,8 @@ router.get('/public-trainers', async (req, res) => {
         .select('fullName bio specialties sessionRate availability profileImage')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       User.countDocuments(filter)
     ]);
 
@@ -67,7 +68,8 @@ router.get('/', auth, adminAuth, async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await User.countDocuments({ role: 'member' });
 
@@ -202,7 +204,8 @@ router.get('/trainers/pending', auth, adminAuth, async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await User.countDocuments({ 
       role: 'trainer', 
@@ -240,7 +243,8 @@ router.get('/trainers', auth, adminAuth, async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await User.countDocuments(filter);
 
@@ -275,8 +279,8 @@ router.post('/trainers', [
   body('specialties.*').isIn(['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding']).withMessage('Invalid specialty'),
   body('sessionRate').isFloat({ min: 0 }).withMessage('Session rate must be a positive number'),
   body('sessionCapacity').optional().isInt({ min: 1 }).withMessage('Session capacity must be at least 1'),
-  body('availability.days').isArray({ min: 1 }).withMessage('At least one available day is required'),
-  body('availability.days.*').isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
+  body('availability.days').optional().isArray().withMessage('Days must be an array if provided'),
+  body('availability.days.*').optional().isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).withMessage('Invalid day'),
   body('availability.timeSlots').isArray({ min: 1 }).withMessage('At least one time slot is required'),
   body('profileImage').optional().isString().withMessage('Profile image must be a string')
 ], async (req, res) => {

@@ -16,4 +16,10 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+// Indexes to optimize frequent queries
+// - Listing a member's bookings sorted by createdAt
+bookingSchema.index({ member: 1, createdAt: -1 });
+// - Trainer calendar and by-date lookups (prefix regex on date benefits from (trainer, date))
+bookingSchema.index({ trainer: 1, date: 1, status: 1 });
+
 module.exports = mongoose.model('Booking', bookingSchema);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   User, 
@@ -16,12 +16,13 @@ import {
   ArrowRight,
   Trash2
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { recipesAPI, blogsAPI, bookingsAPI } from '../services/api';
+import { recipesAPI, blogsAPI, bookingsAPI, usersAPI } from '../services/api';
 
 const TrainerDashboard = () => {
   const { user, updateProfile } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({
     fullName: '',
@@ -35,6 +36,9 @@ const TrainerDashboard = () => {
     profileImage: ''
   });
 
+  // Sidebar active section
+  const [activeSection, setActiveSection] = useState('clients');
+
   // State for recipe and blog management
   const [recipes, setRecipes] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -47,6 +51,11 @@ const TrainerDashboard = () => {
 
   // My Clients (Bookings) - calendar and list
   const today = new Date();
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  const yearOptions = Array.from({ length: 11 }, (_, i) => today.getFullYear() - 5 + i);
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth() + 1); // 1-12
   const [calendarCounts, setCalendarCounts] = useState({});
@@ -78,18 +87,39 @@ const TrainerDashboard = () => {
     }
   }, [user]);
 
-  // Fetch recipes and posts
+  // Fetch recipes when Recipes section is active
   useEffect(() => {
-    fetchRecipes();
-  }, [recipeCurrentPage]);
+    if (activeSection === 'recipes') {
+      fetchRecipes();
+    }
+  }, [recipeCurrentPage, activeSection]);
 
+  // Fetch posts when Blogs section is active
   useEffect(() => {
-    fetchPosts();
-  }, [blogCurrentPage]);
+    if (activeSection === 'blogs') {
+      fetchPosts();
+    }
+  }, [blogCurrentPage, activeSection]);
 
+  // AbortControllers for requests
+  const calendarCtrlRef = useRef(null);
+  const clientsCtrlRef = useRef(null);
+
+  // Load calendar counts only when Clients section is active
   useEffect(() => {
-    if (user?.role === 'trainer') loadCalendar();
-  }, [calYear, calMonth, user]);
+    if (user?.role !== 'trainer' || activeSection !== 'clients') return;
+    // cancel any in-flight calendar request
+    if (calendarCtrlRef.current) {
+      calendarCtrlRef.current.abort();
+    }
+    const ctrl = new AbortController();
+    calendarCtrlRef.current = ctrl;
+    loadCalendar(ctrl.signal);
+    return () => {
+      ctrl.abort();
+      if (calendarCtrlRef.current === ctrl) calendarCtrlRef.current = null;
+    };
+  }, [calYear, calMonth, user, activeSection]);
 
   const fetchRecipes = async () => {
     try {
@@ -105,25 +135,55 @@ const TrainerDashboard = () => {
     }
   };
 
-  const loadCalendar = async () => {
+  const handleDeleteAccount = async () => {
+    if (!user?._id) return;
+    const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
+    if (!confirmed) return;
     try {
-      const { data } = await bookingsAPI.myClientsCalendar(calYear, calMonth);
+      await usersAPI.deleteUser(user._id);
+      toast.success('Account deleted successfully');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Failed to delete account. Please contact an administrator.';
+      toast.error(msg);
+    }
+  };
+
+  const loadCalendar = async (signal) => {
+    try {
+      const { data } = await bookingsAPI.myClientsCalendar(calYear, calMonth, { signal });
       setCalendarCounts(data.counts || {});
     } catch (e) {
-      console.error('Calendar load error', e);
+      if (e?.code !== 'ERR_CANCELED') {
+        console.error('Calendar load error', e);
+      }
     }
   };
 
   const loadClientsByDate = async (dateStr) => {
     try {
+      // cancel previous request if any
+      if (clientsCtrlRef.current) {
+        clientsCtrlRef.current.abort();
+      }
+      const ctrl = new AbortController();
+      clientsCtrlRef.current = ctrl;
       setClientsLoading(true);
       setSelectedDate(dateStr);
-      const { data } = await bookingsAPI.myClientsByDate(dateStr);
+      const { data } = await bookingsAPI.myClientsByDate(dateStr, { signal: ctrl.signal });
       setClients(data.clients || []);
     } catch (e) {
-      toast.error('Failed to load clients for selected date');
+      if (e?.code !== 'ERR_CANCELED') {
+        toast.error('Failed to load clients for selected date');
+      }
     } finally {
       setClientsLoading(false);
+      // clear ref if it's our controller
+      if (clientsCtrlRef.current && clientsCtrlRef.current.signal.aborted) {
+        clientsCtrlRef.current = null;
+      }
     }
   };
 
@@ -276,17 +336,40 @@ const TrainerDashboard = () => {
   }
 
   return (
-    <div className="dashboard">
-      <div className="container">
-        <div className="dashboard-header">
-          <h1 className="dashboard-title">Welcome back, {user?.fullName}!</h1>
+    <div className="admin-layout">
+      <aside className="admin-sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-title">Trainer Panel</div>
+          <div className="sidebar-subtitle">Welcome, {user?.fullName}</div>
         </div>
+        <nav className="sidebar-menu">
+          <button className={`menu-btn ${activeSection === 'clients' ? 'active' : ''}`} onClick={() => setActiveSection('clients')}>
+            <Calendar size={18} />
+            <span>My Clients</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'blogs' ? 'active' : ''}`} onClick={() => setActiveSection('blogs')}>
+            <BookOpen size={18} />
+            <span>Blog Posts Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'recipes' ? 'active' : ''}`} onClick={() => setActiveSection('recipes')}>
+            <ChefHat size={18} />
+            <span>Recipes Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'profile' ? 'active' : ''}`} onClick={() => setActiveSection('profile')}>
+            <User size={18} />
+            <span>Profile Management</span>
+          </button>
+        </nav>
+      </aside>
+      <div className="dashboard admin-content">
+        <div className="container">
 
-        {/* Trainer Profile Card */}
+        {/* Profile Management */}
+        {activeSection === 'profile' && (
         <div className="card">
           <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
             <Activity size={20} style={{ marginRight: '8px' }} />
-            Your Trainer Profile
+            Profile Management
           </h3>
           {!editing ? (
             <>
@@ -336,8 +419,9 @@ const TrainerDashboard = () => {
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                 <button className="btn btn-secondary" onClick={() => setEditing(true)}>Edit Profile</button>
+                <button className="btn btn-danger" onClick={handleDeleteAccount}>Delete Account</button>
               </div>
             </>
           ) : (
@@ -428,8 +512,10 @@ const TrainerDashboard = () => {
             </form>
           )}
         </div>
+        )}
 
         {/* Blog Posts Management */}
+        {activeSection === 'blogs' && (
         <div className="content-management-section" style={{ marginTop: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
@@ -484,8 +570,10 @@ const TrainerDashboard = () => {
             )}
           </div>
         </div>
+        )}
 
         {/* Recipes Management */}
+        {activeSection === 'recipes' && (
         <div className="content-management-section" style={{ marginTop: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
@@ -540,31 +628,35 @@ const TrainerDashboard = () => {
             )}
           </div>
         </div>
+        )}
 
         {/* My Clients - Calendar & List */}
+        {activeSection === 'clients' && (
         <div className="content-management-section" style={{ marginTop: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
               <Calendar size={24} style={{ marginRight: '8px' }} />
               My Clients
             </h2>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="calendar-controls">
               <select
-                className="form-input"
+                className="pill-select"
                 value={calMonth}
                 onChange={(e) => setCalMonth(parseInt(e.target.value))}
               >
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
-                  <option key={m} value={m}>{m.toString().padStart(2,'0')}</option>
+                {monthNames.map((name, idx) => (
+                  <option key={name} value={idx + 1}>{name}</option>
                 ))}
               </select>
-              <input
-                type="number"
-                className="form-input"
+              <select
+                className="pill-select"
                 value={calYear}
-                onChange={(e) => setCalYear(parseInt(e.target.value) || calYear)}
-                style={{ width: 100 }}
-              />
+                onChange={(e) => setCalYear(parseInt(e.target.value))}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -632,8 +724,10 @@ const TrainerDashboard = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
+  </div>
   );
 };
 

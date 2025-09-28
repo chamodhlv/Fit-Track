@@ -143,18 +143,18 @@ export const recipesAPI = {
 
 // Public Trainers API for Booking
 export const publicTrainersAPI = {
-  list: (page = 1, limit = 10) => api.get(`/users/public-trainers?page=${page}&limit=${limit}`),
-  getById: (id) => api.get(`/users/public-trainers/${id}`),
+  list: (page = 1, limit = 10, config = {}) => api.get(`/users/public-trainers?page=${page}&limit=${limit}`, config),
+  getById: (id, config = {}) => api.get(`/users/public-trainers/${id}`, config),
 };
 
 // Bookings API
 export const bookingsAPI = {
-  create: (trainerId, date) => api.post('/bookings', { trainerId, date }),
-  myBookings: (page = 1, limit = 10) => api.get(`/bookings/my?page=${page}&limit=${limit}`),
+  create: (trainerId, date, config = {}) => api.post('/bookings', { trainerId, date }, config),
+  myBookings: (page = 1, limit = 10, config = {}) => api.get(`/bookings/my?page=${page}&limit=${limit}`, config),
   receiptPdfUrl: (id) => `${API_BASE_URL}/bookings/${id}/receipt`,
   // Trainer
-  myClientsCalendar: (year, month) => api.get(`/bookings/my-clients/calendar?year=${year}&month=${month}`),
-  myClientsByDate: (date) => api.get(`/bookings/my-clients/by-date?date=${encodeURIComponent(date)}`),
+  myClientsCalendar: (year, month, config = {}) => api.get(`/bookings/my-clients/calendar?year=${year}&month=${month}`, config),
+  myClientsByDate: (date, config = {}) => api.get(`/bookings/my-clients/by-date?date=${encodeURIComponent(date)}` , config),
 };
 
 // Events API

@@ -15,7 +15,7 @@ const generateToken = (userId) => {
 // @desc    Register a new member
 // @access  Public
 router.post('/register', [
-  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name must be at least 2 characters'),
+  body('fullName').trim().isLength({ min: 3 }).withMessage('Full name must be at least 3 characters'),
   body('email').isEmail().withMessage('Please enter a valid email'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('confirmPassword').custom((value, { req }) => {
@@ -24,9 +24,9 @@ router.post('/register', [
     }
     return true;
   }),
-  body('age').isInt({ min: 13, max: 100 }).withMessage('Age must be between 13 and 100'),
-  body('weight').isFloat({ min: 30, max: 300 }).withMessage('Weight must be between 30 and 300 kg'),
-  body('height').isFloat({ min: 100, max: 250 }).withMessage('Height must be between 100 and 250 cm'),
+  body('age').isInt({ min: 13, max: 80 }).withMessage('Age must be between 13 and 80'),
+  body('weight').isFloat({ min: 30, max: 200 }).withMessage('Weight must be between 30 and 200 kg'),
+  body('height').isFloat({ min: 100, max: 215 }).withMessage('Height must be between 100 and 215 cm'),
   body('fitnessGoal').isIn(['weight loss', 'muscle gain', 'endurance', 'flexibility']).withMessage('Invalid fitness goal'),
   body('experienceLevel').isIn(['beginner', 'intermediate', 'advanced']).withMessage('Invalid experience level')
 ], async (req, res) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, blogsAPI, recipesAPI, eventsAPI } from '../services/api';
-import { Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
@@ -15,6 +15,7 @@ const AdminDashboard = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [showEditMember, setShowEditMember] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberForm, setNewMemberForm] = useState({
     fullName: '',
@@ -27,6 +28,9 @@ const AdminDashboard = () => {
     experienceLevel: 'beginner'
   });
 
+  // Admin sidebar active section
+  const [activeSection, setActiveSection] = useState('dashboard');
+
 
   // Trainer management state
   const [allTrainersLoading, setAllTrainersLoading] = useState(true);
@@ -35,6 +39,7 @@ const AdminDashboard = () => {
   const [allTrainersTotalPages, setAllTrainersTotalPages] = useState(1);
   const [trainerStatusFilter, setTrainerStatusFilter] = useState('all');
   const [editingTrainer, setEditingTrainer] = useState(null);
+  const [showEditTrainer, setShowEditTrainer] = useState(false);
   const [showAddTrainer, setShowAddTrainer] = useState(false);
   const [trainerEditForm, setTrainerEditForm] = useState({
     fullName: '',
@@ -152,7 +157,8 @@ const AdminDashboard = () => {
     try {
       setAllTrainersLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/trainers?page=${allTrainersCurrentPage}&limit=10`, {
+      const statusParam = trainerStatusFilter || 'all';
+      const response = await fetch(`/api/users/trainers?page=${allTrainersCurrentPage}&limit=10&status=${encodeURIComponent(statusParam)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -183,10 +189,24 @@ const AdminDashboard = () => {
       availability: trainer.availability || { timeSlots: [{ start: '', end: '' }] },
       profileImage: trainer.profileImage || ''
     });
+    setShowEditTrainer(true);
   };
 
   const handleUpdateTrainer = async (trainerId) => {
     try {
+      // Validate single time slot
+      const firstSlot = (trainerEditForm.availability?.timeSlots || [])[0] || { start: '', end: '' };
+      if (!(firstSlot.start && firstSlot.end)) {
+        toast.error('Please set a time slot (start and end) for the trainer');
+        return;
+      }
+      const payload = {
+        ...trainerEditForm,
+        availability: {
+          ...(trainerEditForm.availability || {}),
+          timeSlots: [{ start: firstSlot.start, end: firstSlot.end }]
+        }
+      };
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/users/trainers/${trainerId}`, {
         method: 'PUT',
@@ -194,12 +214,13 @@ const AdminDashboard = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(trainerEditForm)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
         toast.success('Trainer updated successfully');
         setEditingTrainer(null);
+        setShowEditTrainer(false);
         fetchAllTrainers();
       } else {
         const data = await response.json();
@@ -242,6 +263,12 @@ const AdminDashboard = () => {
   const handleCreateTrainer = async (e) => {
     e.preventDefault();
     try {
+      // Validate time slots: must have at least one complete slot
+      const slots = (newTrainerForm.availability?.timeSlots || []).filter(s => (s.start || '').trim() && (s.end || '').trim());
+      if (slots.length < 1) {
+        toast.error('Please add at least one time slot (start and end) for the trainer');
+        return;
+      }
       const token = localStorage.getItem('token');
       const response = await fetch('/api/users/trainers', {
         method: 'POST',
@@ -262,7 +289,7 @@ const AdminDashboard = () => {
           bio: newTrainerForm.bio,
           specialties: newTrainerForm.specialties,
           sessionRate: Number(newTrainerForm.sessionRate),
-          availability: newTrainerForm.availability,
+          availability: { ...(newTrainerForm.availability || {}), timeSlots: slots },
           profileImage: newTrainerForm.profileImage || '',
           role: 'trainer',
           approvalStatus: 'approved'
@@ -379,6 +406,12 @@ const AdminDashboard = () => {
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     try {
+      // Prevent past dates
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (newEventForm.date && newEventForm.date < todayStr) {
+        toast.error('Please select today or a future date for the event');
+        return;
+      }
       const payload = {
         name: newEventForm.name,
         location: newEventForm.location,
@@ -425,6 +458,12 @@ const AdminDashboard = () => {
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     try {
+      // Prevent past dates on update
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (editEventForm.date && editEventForm.date < todayStr) {
+        toast.error('Please select today or a future date for the event');
+        return;
+      }
       const payload = {
         name: editEventForm.name,
         location: editEventForm.location,
@@ -601,6 +640,7 @@ const AdminDashboard = () => {
       fitnessGoal: userToEdit.fitnessGoal || 'weight loss',
       experienceLevel: userToEdit.experienceLevel || 'beginner',
     });
+    setShowEditMember(true);
   };
 
   const handleUpdateUser = async (userId) => {
@@ -608,6 +648,7 @@ const AdminDashboard = () => {
       await usersAPI.updateUser(userId, editForm);
       toast.success('User updated successfully');
       setEditingUser(null);
+      setShowEditMember(false);
       fetchUsers();
     } catch (error) {
       toast.error('Failed to update user');
@@ -693,6 +734,12 @@ const AdminDashboard = () => {
 
   // Removed user management handlers and formatting as the admin page now only shows Total Members
 
+  // Dashboard stat counters
+  const activeTrainersCount = (allTrainers || []).filter(t => t.approvalStatus === 'approved').length || 0;
+  const upcomingEventsCount = (events || []).length || 0;
+  const blogPostsCount = (blogPosts || []).length || 0;
+  const recipesCount = (recipes || []).length || 0;
+
   if (loading) {
     return (
       <div className="loading">
@@ -704,15 +751,74 @@ const AdminDashboard = () => {
   // No active/inactive segregation needed
 
   return (
-    <div className="dashboard">
-      <div className="container">
-        <div className="dashboard-header">
-          <h1 className="dashboard-title">Admin Dashboard</h1>
+    <div className="admin-layout">
+      <aside className="admin-sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-title">Admin Panel</div>
+          <div className="sidebar-subtitle">Management Dashboard</div>
         </div>
+        <nav className="sidebar-menu">
+          <button className={`menu-btn ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveSection('dashboard')}>
+            <LayoutDashboard size={18} />
+            <span>Dashboard</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'members' ? 'active' : ''}`} onClick={() => setActiveSection('members')}>
+            <Users size={18} />
+            <span>Member Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'trainers' ? 'active' : ''}`} onClick={() => setActiveSection('trainers')}>
+            <Users size={18} />
+            <span>Trainer Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'events' ? 'active' : ''}`} onClick={() => setActiveSection('events')}>
+            <FileText size={18} />
+            <span>Event Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'blogs' ? 'active' : ''}`} onClick={() => setActiveSection('blogs')}>
+            <FileText size={18} />
+            <span>Blog Post Management</span>
+          </button>
+          <button className={`menu-btn ${activeSection === 'recipes' ? 'active' : ''}`} onClick={() => setActiveSection('recipes')}>
+            <FileText size={18} />
+            <span>Recipe Management</span>
+          </button>
+        </nav>
+      </aside>
+      <div className="dashboard admin-content">
+        <div className="container">
+        
 
-        {/* Stats Section removed as requested */}
+        {activeSection === 'dashboard' && (
+          <>
+            <h2 className="dashboard-title" style={{ marginTop: 0 }}>Dashboard</h2>
+            <p className="dashboard-subtitle">Welcome back! Here's what's happening with your platform.</p>
+            <div className="admin-stats">
+              <div className="admin-stat-card">
+                <div className="admin-stat-title">Total Members</div>
+                <div className="admin-stat-number">{totalMembers}</div>
+              </div>
+              <div className="admin-stat-card">
+                <div className="admin-stat-title">Active Trainers</div>
+                <div className="admin-stat-number">{activeTrainersCount}</div>
+              </div>
+              <div className="admin-stat-card">
+                <div className="admin-stat-title">Upcoming Events</div>
+                <div className="admin-stat-number">{upcomingEventsCount}</div>
+              </div>
+              <div className="admin-stat-card">
+                <div className="admin-stat-title">Blog Posts</div>
+                <div className="admin-stat-number">{blogPostsCount}</div>
+              </div>
+              <div className="admin-stat-card">
+                <div className="admin-stat-title">Recipes</div>
+                <div className="admin-stat-number">{recipesCount}</div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Users Management Section */}
+        {activeSection === 'members' && (<>
         <div className="section-header">
           <h2 className="section-title">
             <Users size={24} style={{ marginRight: '8px' }} />
@@ -750,91 +856,24 @@ const AdminDashboard = () => {
                 {users.map((member) => (
                   <tr key={member._id}>
                     <td>
-                      {editingUser === member._id ? (
-                        <input
-                          type="text"
-                          value={editForm.fullName}
-                          onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
-                        />
-                      ) : (
-                        <div>
-                          <div style={{ fontWeight: '600' }}>{member.fullName}</div>
-                        </div>
-                      )}
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{member.fullName}</div>
+                      </div>
                     </td>
                     <td>
-                      {editingUser === member._id ? (
-                        <input
-                          type="email"
-                          value={editForm.email}
-                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
-                        />
-                      ) : (
-                        <div>
-                          <div>{member.email}</div>
-                        </div>
-                      )}
+                      <div>
+                        <div>{member.email}</div>
+                      </div>
                     </td>
                     <td>
-                      {editingUser === member._id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <input
-                            type="number"
-                            value={editForm.weight}
-                            onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
-                            placeholder="Weight"
-                            className="form-input"
-                            style={{ fontSize: '0.8rem', padding: '2px 6px' }}
-                          />
-                          <input
-                            type="number"
-                            value={editForm.height}
-                            onChange={(e) => setEditForm({ ...editForm, height: e.target.value })}
-                            placeholder="Height"
-                            className="form-input"
-                            style={{ fontSize: '0.8rem', padding: '2px 6px' }}
-                          />
-                        </div>
-                      ) : (
-                        <div>
-                          <div>{member.weight}kg, {member.height}cm</div>
-                        </div>
-                      )}
+                      <div>
+                        <div>{member.weight}kg, {member.height}cm</div>
+                      </div>
                     </td>
                     <td>
-                      {editingUser === member._id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <select
-                            value={editForm.fitnessGoal}
-                            onChange={(e) => setEditForm({ ...editForm, fitnessGoal: e.target.value })}
-                            className="form-select"
-                            style={{ fontSize: '0.8rem', padding: '2px 6px' }}
-                          >
-                            <option value="weight loss">Weight Loss</option>
-                            <option value="muscle gain">Muscle Gain</option>
-                            <option value="endurance">Endurance</option>
-                            <option value="flexibility">Flexibility</option>
-                          </select>
-                          <select
-                            value={editForm.experienceLevel}
-                            onChange={(e) => setEditForm({ ...editForm, experienceLevel: e.target.value })}
-                            className="form-select"
-                            style={{ fontSize: '0.8rem', padding: '2px 6px' }}
-                          >
-                            <option value="beginner">Beginner</option>
-                            <option value="intermediate">Intermediate</option>
-                            <option value="advanced">Advanced</option>
-                          </select>
-                        </div>
-                      ) : (
-                        <div>
-                          <div style={{ textTransform: 'capitalize' }}>{member.fitnessGoal}</div>
-                        </div>
-                      )}
+                      <div>
+                        <div style={{ textTransform: 'capitalize' }}>{member.fitnessGoal}</div>
+                      </div>
                     </td>
                     <td>
                       <div style={{ fontSize: '0.9rem' }}>
@@ -843,43 +882,22 @@ const AdminDashboard = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        {editingUser === member._id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdateUser(member._id)}
-                              className="btn btn-success"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingUser(null)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleEditUser(member)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="Edit User"
-                            >
-                              <Edit size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(member._id)}
-                              className="btn btn-danger"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="Delete User"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => handleEditUser(member)}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Edit User"
+                        >
+                          <Edit size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(member._id)}
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Delete User"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -915,8 +933,10 @@ const AdminDashboard = () => {
             </button>
           </div>
         )}
+        </>)}
 
         {/* Events Management Section */}
+        {activeSection === 'events' && (<>
         <div className="section-header" style={{ marginTop: '2rem' }}>
           <h2 className="section-title">
             <FileText size={24} style={{ marginRight: '8px' }} />
@@ -1042,7 +1062,8 @@ const AdminDashboard = () => {
                         required 
                         className="form-input" 
                         value={newEventForm.date} 
-                        onChange={(e) => setNewEventForm({ ...newEventForm, date: e.target.value })} 
+                        onChange={(e) => setNewEventForm({ ...newEventForm, date: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]} 
                       />
                     </div>
                     <div className="form-group">
@@ -1193,7 +1214,8 @@ const AdminDashboard = () => {
                         required 
                         className="form-input" 
                         value={editEventForm.date} 
-                        onChange={(e) => setEditEventForm({ ...editEventForm, date: e.target.value })} 
+                        onChange={(e) => setEditEventForm({ ...editEventForm, date: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]} 
                       />
                     </div>
                     <div className="form-group">
@@ -1301,9 +1323,10 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+        </>)}
 
         {/* Add Member Modal */}
-        {showAddMember && (
+        {activeSection === 'members' && showAddMember && (
           <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
@@ -1389,7 +1412,119 @@ const AdminDashboard = () => {
         )}
 
 
+        {/* Edit Member Modal */}
+        {activeSection === 'members' && showEditMember && (
+          <div className="modal-overlay" onClick={() => { setShowEditMember(false); setEditingUser(null); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Edit Member</h3>
+                <button className="modal-close" onClick={() => { setShowEditMember(false); setEditingUser(null); }}>×</button>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); handleUpdateUser(editingUser); }} className="modal-body">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={editForm.fullName}
+                      onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      className="form-input"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Age</label>
+                    <input
+                      type="number"
+                      min="13"
+                      max="100"
+                      className="form-input"
+                      value={editForm.age}
+                      onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                      placeholder="Age"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Weight (kg)</label>
+                    <input
+                      type="number"
+                      min="30"
+                      max="300"
+                      className="form-input"
+                      value={editForm.weight}
+                      onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                      placeholder="Weight in kg"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Height (cm)</label>
+                    <input
+                      type="number"
+                      min="100"
+                      max="250"
+                      className="form-input"
+                      value={editForm.height}
+                      onChange={(e) => setEditForm({ ...editForm, height: e.target.value })}
+                      placeholder="Height in cm"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fitness Goal</label>
+                    <select
+                      className="form-select"
+                      value={editForm.fitnessGoal}
+                      onChange={(e) => setEditForm({ ...editForm, fitnessGoal: e.target.value })}
+                    >
+                      <option value="weight loss">Weight Loss</option>
+                      <option value="muscle gain">Muscle Gain</option>
+                      <option value="endurance">Endurance</option>
+                      <option value="flexibility">Flexibility</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Experience Level</label>
+                    <select
+                      className="form-select"
+                      value={editForm.experienceLevel}
+                      onChange={(e) => setEditForm({ ...editForm, experienceLevel: e.target.value })}
+                    >
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => { setShowEditMember(false); setEditingUser(null); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Trainer Management Section */}
+        {activeSection === 'trainers' && (<>
         <div className="section-header" style={{ marginTop: '2rem' }}>
           <h2 className="section-title">
             <Users size={24} style={{ marginRight: '8px' }} />
@@ -1463,6 +1598,26 @@ const AdminDashboard = () => {
               </div>
 
               <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Profile Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="form-input"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => setNewTrainerForm({ ...newTrainerForm, profileImage: reader.result });
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {newTrainerForm.profileImage && (
+                  <img src={newTrainerForm.profileImage} alt="Trainer preview" className="event-image-preview" />
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Specialties *</label>
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   {['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'].map(specialty => (
@@ -1490,12 +1645,154 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Time Slot (single) */}
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Time Slot *</label>
+                <div className="event-guest-inputs">
+                  <input
+                    type="time"
+                    className="form-input"
+                    required
+                    value={(newTrainerForm.availability?.timeSlots || [{ start: '', end: '' }])[0].start}
+                    onChange={(e) => {
+                      const next = { ...(newTrainerForm.availability || { timeSlots: [{ start: '', end: '' }] }) };
+                      next.timeSlots = [...(next.timeSlots || [{ start: '', end: '' }])];
+                      next.timeSlots[0] = { ...(next.timeSlots[0] || {}), start: e.target.value };
+                      setNewTrainerForm({ ...newTrainerForm, availability: next });
+                    }}
+                  />
+                  <input
+                    type="time"
+                    className="form-input"
+                    required
+                    value={(newTrainerForm.availability?.timeSlots || [{ start: '', end: '' }])[0].end}
+                    onChange={(e) => {
+                      const next = { ...(newTrainerForm.availability || { timeSlots: [{ start: '', end: '' }] }) };
+                      next.timeSlots = [...(next.timeSlots || [{ start: '', end: '' }])];
+                      next.timeSlots[0] = { ...(next.timeSlots[0] || {}), end: e.target.value };
+                      setNewTrainerForm({ ...newTrainerForm, availability: next });
+                    }}
+                  />
+                </div>
+              </div>
+
 
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddTrainer(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Trainer</button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Edit Trainer Modal (correctly placed in Trainers section) */}
+        {showEditTrainer && (
+          <div className="modal-overlay" onClick={() => { setShowEditTrainer(false); setEditingTrainer(null); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Edit Trainer</h3>
+                <button className="modal-close" onClick={() => { setShowEditTrainer(false); setEditingTrainer(null); }}>×</button>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); handleUpdateTrainer(editingTrainer); }} className="modal-body">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input type="text" className="form-input" value={trainerEditForm.fullName} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, fullName: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input type="email" className="form-input" value={trainerEditForm.email} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, email: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Bio</label>
+                  <textarea className="form-input" rows="3" value={trainerEditForm.bio} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, bio: e.target.value })} />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Session Rate (LKR per session)</label>
+                    <input type="number" min="0" step="0.01" className="form-input" value={trainerEditForm.sessionRate} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, sessionRate: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Profile Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="form-input"
+                    onChange={(e) => {
+                      const file = e.target.files && e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => setTrainerEditForm({ ...trainerEditForm, profileImage: reader.result });
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  {trainerEditForm.profileImage && (
+                    <img src={trainerEditForm.profileImage} alt="Trainer preview" className="event-image-preview" />
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>Specialties</label>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'].map(specialty => (
+                      <label key={specialty} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={(trainerEditForm.specialties || []).includes(specialty)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setTrainerEditForm({ ...trainerEditForm, specialties: [...(trainerEditForm.specialties || []), specialty] });
+                            } else {
+                              setTrainerEditForm({ ...trainerEditForm, specialties: (trainerEditForm.specialties || []).filter(s => s !== specialty) });
+                            }
+                          }}
+                        />
+                        {specialty}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Time Slot</label>
+                  <div className="event-guest-inputs">
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={(trainerEditForm.availability?.timeSlots || [{ start: '', end: '' }])[0].start}
+                      onChange={(e) => {
+                        const next = { ...(trainerEditForm.availability || { timeSlots: [{ start: '', end: '' }] }) };
+                        next.timeSlots = [...(next.timeSlots || [{ start: '', end: '' }])];
+                        next.timeSlots[0] = { ...(next.timeSlots[0] || {}), start: e.target.value };
+                        setTrainerEditForm({ ...trainerEditForm, availability: next });
+                      }}
+                    />
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={(trainerEditForm.availability?.timeSlots || [{ start: '', end: '' }])[0].end}
+                      onChange={(e) => {
+                        const next = { ...(trainerEditForm.availability || { timeSlots: [{ start: '', end: '' }] }) };
+                        next.timeSlots = [...(next.timeSlots || [{ start: '', end: '' }])];
+                        next.timeSlots[0] = { ...(next.timeSlots[0] || {}), end: e.target.value };
+                        setTrainerEditForm({ ...trainerEditForm, availability: next });
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => { setShowEditTrainer(false); setEditingTrainer(null); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -1526,96 +1823,37 @@ const AdminDashboard = () => {
                 {allTrainers.map((trainer) => (
                   <tr key={trainer._id}>
                     <td>
-                      {editingTrainer === trainer._id ? (
-                        <input
-                          type="text"
-                          value={trainerEditForm.fullName}
-                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, fullName: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
-                        />
-                      ) : (
-                        <div>
-                          <div style={{ fontWeight: '600' }}>{trainer.fullName}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                            {trainer.bio?.substring(0, 60)}...
-                          </div>
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{trainer.fullName}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                          {trainer.bio?.substring(0, 60)}...
                         </div>
-                      )}
+                      </div>
                     </td>
                     <td>
-                      {editingTrainer === trainer._id ? (
-                        <input
-                          type="email"
-                          value={trainerEditForm.email}
-                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, email: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
-                        />
-                      ) : (
-                        <div>{trainer.email}</div>
-                      )}
+                      <div>{trainer.email}</div>
                     </td>
                     <td>
-                      {editingTrainer === trainer._id ? (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                          {['Weight Loss', 'Strength Training', 'Yoga Instructor', 'Bodybuilding'].map(specialty => (
-                            <label key={specialty} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
-                              <input
-                                type="checkbox"
-                                checked={trainerEditForm.specialties.includes(specialty)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setTrainerEditForm({
-                                      ...trainerEditForm,
-                                      specialties: [...trainerEditForm.specialties, specialty]
-                                    });
-                                  } else {
-                                    setTrainerEditForm({
-                                      ...trainerEditForm,
-                                      specialties: trainerEditForm.specialties.filter(s => s !== specialty)
-                                    });
-                                  }
-                                }}
-                              />
-                              {specialty}
-                            </label>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                          {trainer.specialties?.map((specialty, index) => (
-                            <span 
-                              key={index}
-                              style={{
-                                display: 'inline-block',
-                                backgroundColor: '#e3f2fd',
-                                color: '#1976d2',
-                                padding: '2px 6px',
-                                borderRadius: '8px',
-                                fontSize: '11px'
-                              }}
-                            >
-                              {specialty}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {trainer.specialties?.map((specialty, index) => (
+                          <span 
+                            key={index}
+                            style={{
+                              display: 'inline-block',
+                              backgroundColor: '#e3f2fd',
+                              color: '#1976d2',
+                              padding: '2px 6px',
+                              borderRadius: '8px',
+                              fontSize: '11px'
+                            }}
+                          >
+                            {specialty}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td>
-                      {editingTrainer === trainer._id ? (
-                        <input
-                          type="number"
-                          value={trainerEditForm.sessionRate}
-                          onChange={(e) => setTrainerEditForm({ ...trainerEditForm, sessionRate: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.9rem', padding: '4px 8px', width: '80px' }}
-                          min="0"
-                          step="0.01"
-                        />
-                      ) : (
-                        <div style={{ fontWeight: '600' }}>LKR {trainer.sessionRate}/Per Session</div>
-                      )}
+                      <div style={{ fontWeight: '600' }}>LKR {trainer.sessionRate}/Per Session</div>
                     </td>
                     <td>
                       <span className={`status-badge ${trainer.approvalStatus}`}>
@@ -1625,61 +1863,40 @@ const AdminDashboard = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        {editingTrainer === trainer._id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdateTrainer(trainer._id)}
-                              className="btn btn-success"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingTrainer(null)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {trainer.approvalStatus === 'pending' && (
-                              <button
-                                onClick={() => handleTrainerStatusChange(trainer._id, 'approved')}
-                                className="btn btn-success"
-                                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                title="Approve"
-                              >
-                                <UserCheck size={12} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleViewTrainer(trainer)}
-                              className="btn btn-info"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="View Profile"
-                            >
-                              <Eye size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleEditTrainer(trainer)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="Edit Trainer"
-                            >
-                              <Edit size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTrainer(trainer._id)}
-                              className="btn btn-danger"
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="Delete Trainer"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </>
+                        {trainer.approvalStatus === 'pending' && (
+                          <button
+                            onClick={() => handleTrainerStatusChange(trainer._id, 'approved')}
+                            className="btn btn-success"
+                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            title="Approve"
+                          >
+                            <UserCheck size={12} />
+                          </button>
                         )}
+                        <button
+                          onClick={() => handleViewTrainer(trainer)}
+                          className="btn btn-info"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="View Profile"
+                        >
+                          <Eye size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleEditTrainer(trainer)}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Edit Trainer"
+                        >
+                          <Edit size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTrainer(trainer._id)}
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Delete Trainer"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1699,8 +1916,10 @@ const AdminDashboard = () => {
             <button onClick={() => setAllTrainersCurrentPage((p) => Math.min(p + 1, allTrainersTotalPages))} disabled={allTrainersCurrentPage === allTrainersTotalPages}>Next</button>
           </div>
         )}
+        </>)}
 
         {/* Blog Post Management Section */}
+        {activeSection === 'blogs' && (<>
         <div className="section-header" style={{ marginTop: '2rem' }}>
           <h2 className="section-title">
             <FileText size={24} style={{ marginRight: '8px' }} />
@@ -1859,8 +2078,10 @@ const AdminDashboard = () => {
             <button onClick={() => setBlogCurrentPage((p) => Math.min(p + 1, blogTotalPages))} disabled={blogCurrentPage === blogTotalPages}>Next</button>
           </div>
         )}
+        </>)}
 
         {/* Recipe Management Section */}
+        {activeSection === 'recipes' && (<>
         <div className="section-header" style={{ marginTop: '2rem' }}>
           <h2 className="section-title">
             <FileText size={24} style={{ marginRight: '8px' }} />
@@ -1995,9 +2216,10 @@ const AdminDashboard = () => {
             <button onClick={() => setRecipeCurrentPage((p) => Math.min(p + 1, recipeTotalPages))} disabled={recipeCurrentPage === recipeTotalPages}>Next</button>
           </div>
         )}
+        </>)}
 
         {/* Add/Edit Post Modal */}
-        {showAddPost && (
+        {activeSection === 'blogs' && showAddPost && (
           <div className="modal-overlay" onClick={() => setShowAddPost(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
@@ -2061,7 +2283,7 @@ const AdminDashboard = () => {
         )}
 
         {/* View Trainer Modal */}
-        {showViewTrainer && viewingTrainer && (
+        {activeSection === 'trainers' && showViewTrainer && viewingTrainer && (
           <div className="modal-overlay" onClick={() => setShowViewTrainer(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
@@ -2166,6 +2388,7 @@ const AdminDashboard = () => {
         )}
       </div>
     </div>
+  </div>
   );
 };
 
