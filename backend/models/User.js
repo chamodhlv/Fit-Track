@@ -127,4 +127,8 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
+// Indexes to optimize admin/public trainer listings
+userSchema.index({ role: 1, approvalStatus: 1, createdAt: -1 });
+userSchema.index({ role: 1, createdAt: -1 });
+
 module.exports = mongoose.model('User', userSchema);

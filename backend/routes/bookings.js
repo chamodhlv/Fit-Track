@@ -29,6 +29,12 @@ router.post(
       const memberId = req.user._id;
       const { trainerId, date } = req.body;
 
+      // Disallow booking for past dates (date is stored as 'YYYY-MM-DD')
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (typeof date === 'string' && date < todayStr) {
+        return res.status(400).json({ message: 'Booking date cannot be in the past' });
+      }
+
       if (!mongoose.Types.ObjectId.isValid(trainerId)) {
         return res.status(400).json({ message: 'Invalid trainer ID' });
       }
@@ -69,7 +75,6 @@ router.post(
         booking: populated,
       });
     } catch (error) {
-      console.error('Create booking error:', error);
       res.status(500).json({ message: 'Server error' });
     }
   }
@@ -84,12 +89,12 @@ router.get('/my', auth, async (req, res) => {
 
     const [bookings, total] = await Promise.all([
       Booking.find({ member: req.user._id })
+        .select('trainer date amount status createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate([
-          { path: 'trainer', select: 'fullName sessionRate availability' },
-        ]),
+        .populate([{ path: 'trainer', select: 'fullName' }])
+        .lean(),
       Booking.countDocuments({ member: req.user._id }),
     ]);
 
@@ -175,7 +180,6 @@ router.get('/:id/receipt', auth, async (req, res) => {
     doc.end();
   } catch (error) {
     console.error('Generate receipt error:', error);
-    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -195,14 +199,26 @@ router.get(
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
       const { year, month } = req.query;
-      // Find all bookings for trainer in given year-month
-      const regex = new RegExp(`^${year}-${String(month).padStart(2, '0')}-`);
-      const bookings = await Booking.find({ trainer: req.user._id, date: { $regex: regex }, status: 'booked' });
+      const yyyy = String(year);
+      const mm = String(month).padStart(2, '0');
+      // Use lexicographical range on ISO-like date strings to leverage index
+      const start = `${yyyy}-${mm}-01`;
+      const end = `${yyyy}-${mm}-31`;
+
+      const results = await Booking.aggregate([
+        {
+          $match: {
+            trainer: new mongoose.Types.ObjectId(req.user._id),
+            status: 'booked',
+            date: { $gte: start, $lte: end },
+          },
+        },
+        { $group: { _id: '$date', count: { $sum: 1 } } },
+      ]);
+
       const counts = {};
-      bookings.forEach(b => {
-        counts[b.date] = (counts[b.date] || 0) + 1;
-      });
-      res.json({ counts });
+      for (const r of results) counts[r._id] = r.count;
+      return res.json({ counts });
     } catch (error) {
       console.error('Trainer calendar error:', error);
       res.status(500).json({ message: 'Server error' });
@@ -218,8 +234,10 @@ router.get('/my-clients/by-date', auth, [query('date').isString()], async (req, 
 
     const { date } = req.query;
     const bookings = await Booking.find({ trainer: req.user._id, date, status: 'booked' })
+      .select('member timeSlot')
       .populate([{ path: 'member', select: 'fullName email' }])
-      .sort({ 'timeSlot.start': 1 });
+      .sort({ 'timeSlot.start': 1 })
+      .lean();
 
     const clients = bookings.map(b => ({
       bookingId: b._id,

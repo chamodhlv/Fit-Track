@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import api, { publicTrainersAPI, bookingsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,35 +56,60 @@ const BookTrainer = () => {
   const [bTotalPages, setBTotalPages] = useState(1);
   const [bLoading, setBLoading] = useState(true);
 
+  // AbortControllers for requests
+  const trainersCtrlRef = useRef(null);
+  const bookingsCtrlRef = useRef(null);
+
   useEffect(() => {
-    loadTrainers();
+    // cancel any in-flight trainers request
+    if (trainersCtrlRef.current) trainersCtrlRef.current.abort();
+    const ctrl = new AbortController();
+    trainersCtrlRef.current = ctrl;
+    loadTrainers(ctrl.signal);
+    return () => {
+      ctrl.abort();
+      if (trainersCtrlRef.current === ctrl) trainersCtrlRef.current = null;
+    };
   }, [tPage]);
 
   useEffect(() => {
-    if (isAuthenticated) loadBookings();
+    if (!isAuthenticated) return;
+    // cancel any in-flight bookings request
+    if (bookingsCtrlRef.current) bookingsCtrlRef.current.abort();
+    const ctrl = new AbortController();
+    bookingsCtrlRef.current = ctrl;
+    loadBookings(ctrl.signal);
+    return () => {
+      ctrl.abort();
+      if (bookingsCtrlRef.current === ctrl) bookingsCtrlRef.current = null;
+    };
   }, [bPage, isAuthenticated]);
 
-  const loadTrainers = async () => {
+  const loadTrainers = async (signal) => {
     try {
       setLoading(true);
-      const { data } = await publicTrainersAPI.list(tPage, 6);
+      const { data } = await publicTrainersAPI.list(tPage, 6, { signal });
       setTTotalPages(data.totalPages || 1);
       setTrainers(data.trainers || []);
     } catch (e) {
-      toast.error('Failed to load trainers');
+      if (e?.code !== 'ERR_CANCELED') {
+        toast.error('Failed to load trainers');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const loadBookings = async () => {
+  const loadBookings = async (signal) => {
     try {
       setBLoading(true);
-      const { data } = await bookingsAPI.myBookings(bPage, 5);
+      const { data } = await bookingsAPI.myBookings(bPage, 5, { signal });
       setBookings(data.bookings || []);
       setBTotalPages(data.totalPages || 1);
     } catch (e) {
-      toast.error('Failed to load your bookings');
+      if (e?.code !== 'ERR_CANCELED') {
+        toast.error('Failed to load your bookings');
+      }
     } finally {
       setBLoading(false);
     }
@@ -97,6 +122,12 @@ const BookTrainer = () => {
     }
     if (!selectedTrainer || !selectedDate) {
       toast.error('Please select trainer and date');
+      return;
+    }
+    // Prevent booking for past dates
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate < todayStr) {
+      toast.error('Please select today or a future date');
       return;
     }
     const ok = window.confirm(`Confirm booking on ${selectedDate} with ${selectedTrainer.fullName}?`);
@@ -253,7 +284,13 @@ const BookTrainer = () => {
               )}
               <div className="form-group">
                 <label>Select Date</label>
-                <input type="date" className="form-input" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+                <input
+                  type="date"
+                  className="form-input"
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
               </div>
             </div>
             <div className="modal-footer">

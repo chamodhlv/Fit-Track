@@ -17,12 +17,12 @@ const WorkoutForm = () => {
         name: '',
         sets: 1,
         reps: 1,
-        weight: 0,
-        duration: 0,
+        weight: '',
+        duration: '',
         notes: ''
       }
     ],
-    totalDuration: 0,
+    totalDuration: '',
     notes: '',
     category: 'mixed'
   });
@@ -42,17 +42,20 @@ const WorkoutForm = () => {
       setFormData({
         title: workout.title,
         date: new Date(workout.date).toISOString().split('T')[0],
-        exercises: workout.exercises.length > 0 ? workout.exercises : [
-          {
-            name: '',
-            sets: 1,
-            reps: 1,
-            weight: 0,
-            duration: 0,
-            notes: ''
-          }
-        ],
-        totalDuration: workout.totalDuration || 0,
+        exercises: (workout.exercises && workout.exercises.length > 0
+          ? workout.exercises.map(ex => ({
+              name: ex.name || '',
+              sets: ex.sets ?? 1,
+              reps: ex.reps ?? 1,
+              weight: ex.weight ? ex.weight : '',
+              duration: ex.duration ? ex.duration : '',
+              notes: ex.notes || ''
+            }))
+          : [
+              { name: '', sets: 1, reps: 1, weight: '', duration: '', notes: '' }
+            ]
+        ),
+        totalDuration: workout.totalDuration ? workout.totalDuration : '',
         notes: workout.notes || '',
         category: workout.category || 'mixed'
       });
@@ -66,17 +69,31 @@ const WorkoutForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'totalDuration') {
+      // Allow empty while typing
+      const next = value === '' ? '' : Number(value);
+      setFormData(prev => ({ ...prev, [name]: next }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleExerciseChange = (index, field, value) => {
     const updatedExercises = [...formData.exercises];
+    const numericFields = ['sets', 'reps', 'weight', 'duration'];
+    let nextVal = value;
+    if (numericFields.includes(field)) {
+      // Allow empty while typing; otherwise coerce to number
+      nextVal = value === '' ? '' : Number(value);
+    } else {
+      nextVal = value;
+    }
     updatedExercises[index] = {
       ...updatedExercises[index],
-      [field]: field === 'name' || field === 'notes' ? value : Number(value) || 0
+      [field]: nextVal,
     };
     setFormData(prev => ({
       ...prev,
@@ -93,8 +110,8 @@ const WorkoutForm = () => {
           name: '',
           sets: 1,
           reps: 1,
-          weight: 0,
-          duration: 0,
+          weight: '',
+          duration: '',
           notes: ''
         }
       ]
@@ -129,10 +146,30 @@ const WorkoutForm = () => {
       return;
     }
 
+    // Normalize numeric fields before sending
+    const normalizedExercises = validExercises.map(ex => ({
+      name: ex.name,
+      sets: Number(ex.sets) || 1,
+      reps: Number(ex.reps) || 1,
+      weight: Number(ex.weight) || 0,
+      duration: Number(ex.duration) || 0,
+      notes: ex.notes || ''
+    }));
+
     const workoutData = {
       ...formData,
-      exercises: validExercises
+      exercises: normalizedExercises
     };
+
+    // Prevent past dates: formData.date must be today or in the future
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (workoutData.date && workoutData.date < todayStr) {
+        toast.error('Please select today or a future date');
+        setLoading(false);
+        return;
+      }
+    } catch {}
 
     try {
       if (isEditing) {
@@ -195,6 +232,7 @@ const WorkoutForm = () => {
               value={formData.date}
               onChange={handleInputChange}
               className="form-input"
+              min={new Date().toISOString().split('T')[0]}
               required
             />
           </div>
@@ -229,6 +267,7 @@ const WorkoutForm = () => {
               className="form-input"
               min="0"
               placeholder="0"
+              onFocus={(e) => e.target.select()}
             />
           </div>
         </div>
@@ -275,6 +314,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'sets', e.target.value)}
                     className="form-input"
                     min="1"
+                    onFocus={(e) => e.target.select()}
                   />
                 </div>
 
@@ -286,6 +326,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)}
                     className="form-input"
                     min="1"
+                    onFocus={(e) => e.target.select()}
                   />
                 </div>
 
@@ -299,6 +340,7 @@ const WorkoutForm = () => {
                     min="0"
                     step="0.5"
                     placeholder="0"
+                    onFocus={(e) => e.target.select()}
                   />
                 </div>
 
@@ -311,6 +353,7 @@ const WorkoutForm = () => {
                     className="form-input"
                     min="0"
                     placeholder="0"
+                    onFocus={(e) => e.target.select()}
                   />
                 </div>
               </div>

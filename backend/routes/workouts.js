@@ -253,6 +253,48 @@ router.post('/', [
 
     const { title, date, exercises, totalDuration, notes, category } = req.body;
 
+    // Reject past dates (normalize to UTC midnight)
+    if (date) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      const now = new Date();
+      const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      if (pickedUTC.getTime() < todayUTC.getTime()) {
+        return res.status(400).json({ message: 'Workout date cannot be in the past' });
+      }
+    }
+
+    // Reject past dates on update if a date is provided
+    if (date !== undefined) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      const now = new Date();
+      const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      if (pickedUTC.getTime() < todayUTC.getTime()) {
+        return res.status(400).json({ message: 'Workout date cannot be in the past' });
+      }
+    }
+
+    // Prevent past dates on update if date is provided (normalize to UTC day)
+    if (date !== undefined) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      const today = new Date();
+      const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      if (pickedUTC.getTime() < todayUTC.getTime()) {
+        return res.status(400).json({ message: 'Workout date cannot be in the past' });
+      }
+    }
+
     const workout = new Workout({
       user: req.user._id,
       title,

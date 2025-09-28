@@ -1,7 +1,39 @@
+
+/* ===== SECTION: Global/Base - App (App.js) ===== */
 .App {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* --- Trainer Calendar Controls --- */
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pill-select {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  padding: 0.4rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  line-height: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.pill-select:hover {
+  background-color: #f9fafb;
+}
+
+.pill-select:focus {
+  outline: none;
+  border-color: #667de9;
+  box-shadow: 0 0 0 3px rgba(102, 125, 233, 0.25);
 }
 
 .main-content {
@@ -9,7 +41,7 @@
   padding-top: 80px; /* Account for fixed navbar */
 }
 
-/* Navbar Styles */
+/* ===== SECTION: Global/Base - Navbar (components/Navbar.js) ===== */
 .navbar {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -80,7 +112,7 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Auth Pages */
+/* ===== SECTION: Auth Pages (pages/Login.js, pages/Register.js) ===== */
 .auth-container {
   min-height: calc(100vh - 80px);
   display: flex;
@@ -132,7 +164,7 @@
   text-decoration: underline;
 }
 
-/* Modal Styles */
+/* ===== SECTION: Components - Modal (shared) ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -236,7 +268,7 @@
   border-radius: 0 0 16px 16px;
 }
 
-/* Event Modal Specific Styles */
+/* ===== SECTION: Events - Create/Edit Modal (pages/EventsList.js) ===== */
 
 
 .event-form-section {
@@ -456,7 +488,7 @@
   }
 }
 
-/* Dashboard Styles */
+/* ===== SECTION: Member Dashboard (pages/MemberDashboard.js) ===== */
 .dashboard {
   padding: 2rem 0;
   min-height: calc(100vh - 80px);
@@ -517,7 +549,7 @@
   color: #333;
 }
 
-/* Workout Styles */
+/* ===== SECTION: Workout (pages/WorkoutForm.js, pages/MemberDashboard.js) ===== */
 .workout-item {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -577,7 +609,7 @@
   margin-top: 0.25rem;
 }
 
-/* Form Styles */
+/* ===== SECTION: Components - Form (shared) ===== */
 .form-container {
   max-width: 800px;
   margin: 2rem auto;
@@ -633,7 +665,7 @@
   font-weight: 600;
 }
 
-/* Table Styles */
+/* ===== SECTION: Components - Table (shared) ===== */
 .table-container {
   background: white;
   border-radius: 8px;
@@ -680,7 +712,7 @@
   color: #991b1b;
 }
 
-/* Pagination */
+/* ===== SECTION: Components - Pagination (shared) ===== */
 .pagination {
   display: flex;
   justify-content: center;
@@ -713,7 +745,7 @@
   border-color: #3b82f6;
 }
 
-/* Blog Styles */
+/* ===== SECTION: Blog (pages/BlogList.js, pages/BlogDetail.js, pages/BlogEditor.js) ===== */
 .blog-hero {
   background: linear-gradient(135deg, #f5f7ff, #eef2ff);
   border: 1px solid #e5e7eb;
@@ -788,7 +820,7 @@
   margin: 0 auto 2rem;
 }
 
-/* Responsive */
+/* ===== SECTION: Global - Responsive (shared) ===== */
 @media (max-width: 768px) {
   .navbar-content {
     padding: 0 1rem;
@@ -821,9 +853,9 @@
   }
 }
 
-/* Trainer-specific styles */
+/* ===== SECTION: Trainer (Register/Dashboard) - pages/TrainerRegister.js, pages/TrainerDashboard.js ===== */
 .specialty-tag {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #bbc4ff 0%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -889,7 +921,7 @@
   gap: 0;
 }
 
-/* Trainer Dashboard Redesign */
+/* ===== SECTION: Trainer Dashboard - Layout/Overview ===== */
 .trainer-hero {
   display: grid;
   grid-template-columns: 1fr 140px;
@@ -901,6 +933,117 @@
   margin-bottom: 1.5rem;
 }
 
+
+/* ===== SECTION: Admin Dashboard - Sidebar/Layout (pages/AdminDashboard.js) ===== */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: calc(100vh - 80px);
+}
+
+.admin-sidebar {
+  background: #667de9; /* solid blue */
+  color: white;
+  padding: 1rem 0.75rem;
+  position: sticky;
+  top: 80px; /* align with fixed navbar */
+  height: calc(100vh - 80px);
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+
+.sidebar-header {
+  padding: 0.75rem 0.75rem 1rem 0.75rem;
+}
+
+.sidebar-title {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.sidebar-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  color: rgba(255,255,255,0.95);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.menu-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.menu-btn.active {
+  background: rgba(255,255,255,0.18);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+.admin-content {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.admin-content .container {
+  padding-top: 2rem;
+}
+
+/* ===== SECTION: Admin Dashboard - Stat Cards ===== */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-stat-card {
+  background: rgb(255, 255, 255);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+  border: 1px solid #eef2ff;
+}
+
+.admin-stat-title {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.admin-stat-number {
+  margin-top: 0.25rem;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+}
 
 
 .trainer-title {
@@ -960,7 +1103,7 @@
   padding: 1rem;
 }
 
-/* Book Trainer Grid */
+/* ===== SECTION: Trainer - Book Trainer (pages/BookTrainer.js) ===== */
 .trainers-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1024,7 +1167,7 @@
   margin-top: 1rem;
 }
 
-/* Status Badge Styles */
+/* ===== SECTION: Components - Status Badges (Blog/Recipes/Admin/Trainer) ===== */
 .status-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -1042,7 +1185,7 @@
   background-color: #4caf50;
 }
 
-/* Trainer approval status badges */
+/* ===== SECTION: Admin - Trainer Approval Badges ===== */
 .status-badge.approved {
   background-color: #22c55e; /* green */
 }
@@ -1053,7 +1196,7 @@
   background-color: #ef4444; /* red */
 }
 
-/* Filter Section Styles */
+/* ===== SECTION: Admin/Content - Filters ===== */
 .filter-section {
   margin-bottom: 1rem;
   padding: 1rem;
@@ -1075,7 +1218,7 @@
   font-size: 0.9rem;
 }
 
-/* Recipe/Blog Thumbnail Styles */
+/* ===== SECTION: Content - Thumbnails (Recipes/Blogs) ===== */
 .recipe-thumbnail, .post-thumbnail {
   width: 50px;
   height: 50px;
@@ -1122,7 +1265,7 @@
   line-height: 1.3;
 }
 
-/* Action Buttons */
+/* ===== SECTION: Components - Action Buttons ===== */
 .action-buttons {
   display: flex;
   gap: 4px;
@@ -1148,7 +1291,7 @@
   background-color: #45a049;
 }
 
-/* Table Improvements */
+/* ===== SECTION: Components - Table Improvements ===== */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1172,7 +1315,7 @@
   background-color: #f8f9fa;
 }
 
-/* Trainer Dashboard Content Management Styles */
+/* ===== SECTION: Trainer - Content Management ===== */
 .content-management-section {
   margin-top: 2rem;
 }
@@ -1216,7 +1359,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Content Guidelines Card */
+/* ===== SECTION: Trainer - Content Guidelines Card ===== */
 .card.guidelines {
   background-color: #f8f9fa;
   border: 1px solid #e9ecef;
@@ -1240,7 +1383,7 @@
   margin-bottom: 0.5rem;
 }
 
-/* Events Page Styles */
+/* ===== SECTION: Events - List & Cards (pages/EventsList.js) ===== */
 .events-hero {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -1381,7 +1524,7 @@
   flex-wrap: wrap;
 }
 
-/* Event Detail Page */
+/* ===== SECTION: Events - Detail (pages/EventDetail.js) ===== */
 .event-detail-hero {
   position: relative;
   border-radius: 16px;
@@ -1490,6 +1633,7 @@
   margin-bottom: 1rem;
 }
 
+/* ===== SECTION: Events - Responsive overrides ===== */
 @media (max-width: 768px) {
   .events-grid {
     grid-template-columns: 1fr;
