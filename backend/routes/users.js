@@ -186,6 +186,28 @@ router.put('/me', [
   }
 });
 
+// @route   DELETE /api/users/me
+// @desc    Delete current user's account (self-service for Member/Trainer)
+// @access  Private
+router.delete('/me', auth, async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id);
+    if (!me) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // Prevent admins from deleting themselves via this route
+    if (me.role === 'admin') {
+      return res.status(403).json({ message: 'Admins cannot delete themselves' });
+    }
+
+    await User.findByIdAndDelete(req.user._id);
+    return res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete self account error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ===== TRAINER ROUTES (must come before /:id routes) =====
 
 // @route   GET /api/users/trainers/pending

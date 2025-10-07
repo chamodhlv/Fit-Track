@@ -51,6 +51,7 @@ export const usersAPI = {
   updateUser: (id, userData) => api.put(`/users/${id}`, userData),
   deleteUser: (id) => api.delete(`/users/${id}`),
   updateMe: (userData) => api.put('/users/me', userData),
+  deleteMe: () => api.delete('/users/me'),
 };
 
 // Workouts API

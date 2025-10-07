@@ -71,7 +71,9 @@ const WorkoutForm = () => {
     const { name, value } = e.target;
     if (name === 'totalDuration') {
       // Allow empty while typing
-      const next = value === '' ? '' : Number(value);
+      const num = value === '' ? '' : Number(value);
+      // Clamp between 0 and 300
+      const next = num === '' ? '' : Math.min(300, Math.max(0, num));
       setFormData(prev => ({ ...prev, [name]: next }));
     } else {
       setFormData(prev => ({
@@ -88,6 +90,20 @@ const WorkoutForm = () => {
     if (numericFields.includes(field)) {
       // Allow empty while typing; otherwise coerce to number
       nextVal = value === '' ? '' : Number(value);
+      // Clamp constraints for specific numeric fields
+      if (field === 'weight' && nextVal !== '') {
+        // Weight must be between 0 and 200 kg
+        nextVal = Math.min(200, Math.max(0, nextVal));
+      } else if (field === 'sets' && nextVal !== '') {
+        // Sets between 1 and 20
+        nextVal = Math.min(20, Math.max(1, nextVal));
+      } else if (field === 'reps' && nextVal !== '') {
+        // Reps between 1 and 100
+        nextVal = Math.min(100, Math.max(1, nextVal));
+      } else if (field === 'duration' && nextVal !== '') {
+        // Per-exercise duration between 0 and 150 minutes
+        nextVal = Math.min(150, Math.max(0, nextVal));
+      }
     } else {
       nextVal = value;
     }
@@ -161,13 +177,15 @@ const WorkoutForm = () => {
       exercises: normalizedExercises
     };
 
-    // Prevent past dates: formData.date must be today or in the future
+    // Prevent past dates only when creating a new workout (not when editing)
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (workoutData.date && workoutData.date < todayStr) {
-        toast.error('Please select today or a future date');
-        setLoading(false);
-        return;
+      if (!isEditing) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (workoutData.date && workoutData.date < todayStr) {
+          toast.error('Please select today or a future date');
+          setLoading(false);
+          return;
+        }
       }
     } catch {}
 
@@ -217,6 +235,7 @@ const WorkoutForm = () => {
               onChange={handleInputChange}
               className="form-input"
               placeholder="e.g., Upper Body Strength Training"
+              maxLength={100}
               required
             />
           </div>
@@ -232,7 +251,7 @@ const WorkoutForm = () => {
               value={formData.date}
               onChange={handleInputChange}
               className="form-input"
-              min={new Date().toISOString().split('T')[0]}
+              min={!isEditing ? new Date().toISOString().split('T')[0] : undefined}
               required
             />
           </div>
@@ -266,6 +285,7 @@ const WorkoutForm = () => {
               onChange={handleInputChange}
               className="form-input"
               min="0"
+              max="300"
               placeholder="0"
               onFocus={(e) => e.target.select()}
             />
@@ -302,6 +322,7 @@ const WorkoutForm = () => {
                   onChange={(e) => handleExerciseChange(index, 'name', e.target.value)}
                   className="form-input"
                   placeholder="e.g., Bench Press, Push-ups, Running"
+                  maxLength={100}
                 />
               </div>
 
@@ -314,6 +335,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'sets', e.target.value)}
                     className="form-input"
                     min="1"
+                    max="20"
                     onFocus={(e) => e.target.select()}
                   />
                 </div>
@@ -326,6 +348,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)}
                     className="form-input"
                     min="1"
+                    max="100"
                     onFocus={(e) => e.target.select()}
                   />
                 </div>
@@ -338,6 +361,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'weight', e.target.value)}
                     className="form-input"
                     min="0"
+                    max="200"
                     step="0.5"
                     placeholder="0"
                     onFocus={(e) => e.target.select()}
@@ -352,6 +376,7 @@ const WorkoutForm = () => {
                     onChange={(e) => handleExerciseChange(index, 'duration', e.target.value)}
                     className="form-input"
                     min="0"
+                    max="150"
                     placeholder="0"
                     onFocus={(e) => e.target.select()}
                   />
@@ -366,6 +391,7 @@ const WorkoutForm = () => {
                   onChange={(e) => handleExerciseChange(index, 'notes', e.target.value)}
                   className="form-input"
                   placeholder="e.g., Felt strong today, increase weight next time"
+                  maxLength={300}
                 />
               </div>
             </div>

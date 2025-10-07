@@ -136,17 +136,21 @@ const TrainerDashboard = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user?._id) return;
+    console.log('[TrainerDashboard] Delete Account clicked');
     const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
     if (!confirmed) return;
     try {
-      await usersAPI.deleteUser(user._id);
+      const loadingId = toast.loading('Deleting your account...');
+      await usersAPI.deleteMe();
+      toast.dismiss(loadingId);
       toast.success('Account deleted successfully');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       navigate('/');
     } catch (error) {
-      const msg = error?.response?.data?.message || 'Failed to delete account. Please contact an administrator.';
+      console.error('[TrainerDashboard] Delete account failed', error);
+      const status = error?.response?.status;
+      const msg = error?.response?.data?.message || (status ? `Failed to delete account (status ${status})` : 'Failed to delete account. Please contact an administrator.');
       toast.error(msg);
     }
   };
