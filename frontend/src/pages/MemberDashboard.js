@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { workoutsAPI } from '../services/api';
+import { workoutsAPI, usersAPI } from '../services/api';
 import { Plus, Calendar, Clock, Dumbbell, Edit, Trash2, Activity, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MemberDashboard = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,6 +31,7 @@ const MemberDashboard = () => {
   const [selectedDateWorkouts, setSelectedDateWorkouts] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [dateLoading, setDateLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchWorkouts();
@@ -89,6 +90,20 @@ const MemberDashboard = () => {
     };
     await updateProfile(payload);
     setEditing(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm('This will permanently delete your account and all your workout logs. Continue?')) {
+      try {
+        await usersAPI.deleteMe();
+        toast.success('Account deleted successfully');
+        logout();
+        navigate('/login');
+      } catch (error) {
+        const msg = error?.response?.data?.message || 'Failed to delete account';
+        toast.error(msg);
+      }
+    }
   };
 
   const handleDeleteWorkout = async (workoutId) => {
@@ -321,8 +336,13 @@ const MemberDashboard = () => {
                   <p><strong>Experience Level:</strong> {user?.experienceLevel}</p>
                 </div>
               </div>
-              <div style={{ marginTop: '1rem' }}>
-                <button className="btn btn-secondary" onClick={() => setEditing(true)}>Edit Profile</button>
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-secondary" onClick={() => setEditing(true)}>
+                  Edit Profile
+                </button>
+                <button className="btn btn-danger" onClick={handleDeleteAccount} title="Delete Account">
+                  Delete Account
+                </button>
               </div>
             </>
           ) : (

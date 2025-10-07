@@ -2361,28 +2361,11 @@ const AdminDashboard = () => {
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Age</label>
-                    <div className="form-display">{viewingTrainer.age} years</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Weight</label>
-                    <div className="form-display">{viewingTrainer.weight} kg</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Height</label>
-                    <div className="form-display">{viewingTrainer.height} cm</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Joined</label>
-                    <div className="form-display">{formatDate(viewingTrainer.createdAt)}</div>
-                  </div>
+                {/* Intentionally hiding Age, Weight, Height, and Joined fields from the View Trainer modal */}
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowViewTrainer(false)}>Close</button>
-              </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setShowViewTrainer(false)}>Close</button>
+                </div>
             </div>
           </div>
         )}
