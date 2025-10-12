@@ -11,7 +11,6 @@ const WorkoutForm = () => {
 
   const [formData, setFormData] = useState({
     title: '',
-    date: new Date().toISOString().split('T')[0],
     exercises: [
       {
         name: '',
@@ -35,13 +34,28 @@ const WorkoutForm = () => {
     }
   }, [id, isEditing]);
 
+  // Auto-calculate total duration from exercises
+  useEffect(() => {
+    const calculatedDuration = formData.exercises.reduce((total, exercise) => {
+      const duration = Number(exercise.duration) || 0;
+      return total + duration;
+    }, 0);
+    
+    // Only update if different to avoid infinite loops
+    if (calculatedDuration !== formData.totalDuration) {
+      setFormData(prev => ({
+        ...prev,
+        totalDuration: calculatedDuration
+      }));
+    }
+  }, [formData.exercises]);
+
   const fetchWorkout = async () => {
     try {
       const response = await workoutsAPI.getWorkout(id);
       const workout = response.data.workout;
       setFormData({
         title: workout.title,
-        date: new Date(workout.date).toISOString().split('T')[0],
         exercises: (workout.exercises && workout.exercises.length > 0
           ? workout.exercises.map(ex => ({
               name: ex.name || '',
@@ -69,12 +83,14 @@ const WorkoutForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'totalDuration') {
-      // Allow empty while typing
-      const num = value === '' ? '' : Number(value);
-      // Clamp between 0 and 300
-      const next = num === '' ? '' : Math.min(300, Math.max(0, num));
-      setFormData(prev => ({ ...prev, [name]: next }));
+    if (name === 'category') {
+      // Clear weight from all exercises when switching to cardio or flexibility
+      if (value === 'cardio' || value === 'flexibility') {
+        const updatedExercises = formData.exercises.map(ex => ({ ...ex, weight: '' }));
+        setFormData(prev => ({ ...prev, category: value, exercises: updatedExercises }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -172,22 +188,15 @@ const WorkoutForm = () => {
       notes: ex.notes || ''
     }));
 
+    // Get today's date in local timezone (YYYY-MM-DD format)
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
     const workoutData = {
       ...formData,
+      date: localDate, // Always use today's date in local timezone
       exercises: normalizedExercises
     };
-
-    // Prevent past dates only when creating a new workout (not when editing)
-    try {
-      if (!isEditing) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (workoutData.date && workoutData.date < todayStr) {
-          toast.error('Please select today or a future date');
-          setLoading(false);
-          return;
-        }
-      }
-    } catch {}
 
     try {
       if (isEditing) {
@@ -245,15 +254,9 @@ const WorkoutForm = () => {
               <Calendar size={16} style={{ marginRight: '8px', display: 'inline' }} />
               Date
             </label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleInputChange}
-              className="form-input"
-              min={!isEditing ? new Date().toISOString().split('T')[0] : undefined}
-              required
-            />
+            <div className="form-input" style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
+              {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </div>
           </div>
         </div>
 
@@ -278,17 +281,12 @@ const WorkoutForm = () => {
               <Clock size={16} style={{ marginRight: '8px', display: 'inline' }} />
               Total Duration (minutes)
             </label>
-            <input
-              type="number"
-              name="totalDuration"
-              value={formData.totalDuration}
-              onChange={handleInputChange}
-              className="form-input"
-              min="0"
-              max="300"
-              placeholder="0"
-              onFocus={(e) => e.target.select()}
-            />
+            <div className="form-input" style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
+              {formData.totalDuration || 0}
+            </div>
+            <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '4px', display: 'block' }}>
+              Auto-calculated from exercise durations
+            </small>
           </div>
         </div>
 
@@ -365,7 +363,15 @@ const WorkoutForm = () => {
                     step="0.5"
                     placeholder="0"
                     onFocus={(e) => e.target.select()}
+                    disabled={formData.category === 'cardio' || formData.category === 'flexibility'}
+                    style={{
+                      backgroundColor: (formData.category === 'cardio' || formData.category === 'flexibility') ? '#f3f4f6' : undefined,
+                      cursor: (formData.category === 'cardio' || formData.category === 'flexibility') ? 'not-allowed' : undefined
+                    }}
                   />
+                  {(formData.category === 'cardio' || formData.category === 'flexibility') && (
+                    <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '4px', display: 'block' }}>Weight not applicable for {formData.category}</small>
+                  )}
                 </div>
 
                 <div className="form-group">
