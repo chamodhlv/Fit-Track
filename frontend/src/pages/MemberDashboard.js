@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutsAPI, usersAPI } from '../services/api';
-import { Plus, Calendar, Clock, Dumbbell, Edit, Trash2, Activity, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, Clock, Dumbbell, Edit, Trash2, Activity, CheckCircle2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MemberDashboard = () => {
@@ -11,6 +11,7 @@ const MemberDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [workoutCategory, setWorkoutCategory] = useState('');
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({
     fullName: user?.fullName || '',
@@ -35,11 +36,11 @@ const MemberDashboard = () => {
 
   useEffect(() => {
     fetchWorkouts();
-  }, [currentPage]);
+  }, [currentPage, workoutCategory]);
 
   const fetchWorkouts = async () => {
     try {
-      const response = await workoutsAPI.getWorkouts(currentPage, 5);
+      const response = await workoutsAPI.getWorkouts(currentPage, 5, { category: workoutCategory });
       setWorkouts(response.data.workouts);
       setTotalPages(response.data.totalPages);
     } catch (error) {
@@ -298,6 +299,28 @@ const MemberDashboard = () => {
     setCalMonth(date.getMonth());
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      const year = calYear;
+      const month1based = calMonth + 1;
+      const res = await workoutsAPI.downloadHistoryPdf(year, month1based);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const pad2 = (n) => String(n).padStart(2, '0');
+      link.href = url;
+      link.setAttribute('download', `workout-history-${year}-${pad2(month1based)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Downloaded monthly workout PDF');
+    } catch (e) {
+      const msg = e?.response?.data?.message || 'Failed to download PDF';
+      toast.error(msg);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -429,6 +452,10 @@ const MemberDashboard = () => {
               <button className="btn btn-secondary" onClick={nextMonth} title="Next Month" style={{ padding: '6px 8px' }}>
                 <ChevronRight size={16} />
               </button>
+              <button className="btn btn-primary" onClick={handleDownloadPdf} title="Download PDF" style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center' }}>
+                <Download size={16} style={{ marginRight: 6 }} />
+                Download the History
+              </button>
             </div>
           </div>
 
@@ -526,6 +553,43 @@ const MemberDashboard = () => {
             <Plus size={16} style={{ marginRight: '8px' }} />
             Add Workout
           </Link>
+        </div>
+
+        {/* Workout Filters (mirroring Blog page style, no search) */}
+        <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', margin: 0 }}>Filter by Category:</label>
+            {workoutCategory && (
+              <button
+                type="button"
+                onClick={() => { setWorkoutCategory(''); setCurrentPage(1); }}
+                className="btn btn-secondary"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {/* All */}
+            <button
+              onClick={() => { setWorkoutCategory(''); setCurrentPage(1); }}
+              className={`btn ${workoutCategory === '' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '14px', padding: '6px 12px', border: workoutCategory === '' ? '2px solid #007bff' : '1px solid #ddd' }}
+            >
+              All
+            </button>
+            {/* Categories */}
+            {['mixed','strength','cardio','flexibility'].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => { setWorkoutCategory(cat); setCurrentPage(1); }}
+                className={`btn ${workoutCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '14px', padding: '6px 12px', border: workoutCategory === cat ? '2px solid #007bff' : '1px solid #ddd', textTransform: 'capitalize' }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         {workouts.length === 0 ? (

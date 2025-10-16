@@ -2,6 +2,9 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const BlogPost = require('../models/BlogPost');
 const { auth, adminAuth } = require('../middleware/auth');
+const PDFDocument = require('pdfkit');
+const https = require('https');
+const http = require('http');
 
 const router = express.Router();
 
@@ -13,14 +16,16 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
     const tag = req.query.tag;
     const category = req.query.category;
+    const search = req.query.search;
 
     const filter = { status: 'published' };
     
-    // Tag filtering (existing functionality)
     if (tag) filter.tags = { $in: [tag] };
-    
-    // Category filtering
     if (category) filter.categories = { $in: [category] };
+    if (search && typeof search === 'string' && search.trim()) {
+      const rx = new RegExp(search.trim(), 'i');
+      filter.$or = [{ title: rx }, { content: rx }];
+    }
 
     const posts = await BlogPost.find(filter)
       .sort({ publishedAt: -1, createdAt: -1 })
@@ -130,6 +135,92 @@ router.get('/my-posts', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get trainer blog posts error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Public: download a published post as PDF (title, image if available, content)
+router.get('/:slug/pdf', async (req, res) => {
+  try {
+    const post = await BlogPost.findOne({ slug: req.params.slug, status: 'published' }).populate('author', 'fullName');
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const safeSlug = String(req.params.slug || 'post').replace(/[^a-z0-9-_]/gi, '-').toLowerCase();
+    res.setHeader('Content-Disposition', `attachment; filename="${safeSlug}.pdf"`);
+
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res);
+
+    doc.font('Helvetica-Bold').fontSize(18).text(post.title || 'Untitled', { align: 'left' });
+    doc.moveDown();
+
+    // Try to embed cover image if URL is http/https
+    const url = typeof post.coverImageUrl === 'string' ? post.coverImageUrl.trim() : '';
+    const isHttp = url && (url.startsWith('http://') || url.startsWith('https://'));
+    const fetchImageBuffer = (imageUrl) => new Promise((resolve) => {
+      try {
+        const client = imageUrl.startsWith('https://') ? https : http;
+        client.get(imageUrl, (response) => {
+          const status = response.statusCode || 0;
+          const type = response.headers['content-type'] || '';
+          if (status >= 300 && status < 400 && response.headers.location) {
+            // Follow redirect once
+            client.get(response.headers.location, (r2) => {
+              const chunks2 = [];
+              r2.on('data', (c) => chunks2.push(c));
+              r2.on('end', () => {
+                const buf2 = Buffer.concat(chunks2);
+                resolve({ buffer: buf2, contentType: r2.headers['content-type'] || '' });
+              });
+              r2.on('error', () => resolve(null));
+            }).on('error', () => resolve(null));
+            return;
+          }
+          if (!type.includes('image')) { resolve(null); return; }
+          const chunks = [];
+          response.on('data', (c) => chunks.push(c));
+          response.on('end', () => {
+            const buf = Buffer.concat(chunks);
+            resolve({ buffer: buf, contentType: type });
+          });
+          response.on('error', () => resolve(null));
+        }).on('error', () => resolve(null));
+      } catch {
+        resolve(null);
+      }
+    });
+
+    if (isHttp) {
+      const result = await fetchImageBuffer(url);
+      if (result && result.buffer && result.buffer.length > 0) {
+        try {
+          doc.image(result.buffer, { fit: [500, 300], align: 'center' });
+          doc.moveDown();
+        } catch {}
+      }
+    }
+
+    // Content
+    const content = typeof post.content === 'string' ? post.content : '';
+    doc.font('Helvetica').fontSize(12).text(content, { align: 'left', width: 500 });
+    doc.moveDown();
+
+    // Footer
+    doc.moveDown();
+    doc.fontSize(10).fillColor('#6b7280').text('Downloaded form Fit-Track', { align: 'center' });
+    const _genDate = new Date();
+    const _genLabel = _genDate.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.fontSize(9).fillColor('#9ca3af').text(`Generated on ${_genLabel}` , { align: 'center' });
+
+    doc.end();
+  } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 });

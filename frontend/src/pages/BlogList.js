@@ -8,6 +8,7 @@ const BlogList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [search, setSearch] = useState('');
   
   const availableCategories = [
     'Strength Training',
@@ -23,6 +24,7 @@ const BlogList = () => {
       try {
         const filters = {};
         if (selectedCategory) filters.category = selectedCategory;
+        if (search) filters.search = search;
         
         const res = await blogsAPI.list(currentPage, 10, filters);
         setPosts(res.data.posts || []);
@@ -34,7 +36,7 @@ const BlogList = () => {
       }
     };
     fetchPosts();
-  }, [currentPage, selectedCategory]);
+  }, [currentPage, selectedCategory, search]);
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category === selectedCategory ? '' : category);
@@ -51,12 +53,36 @@ const BlogList = () => {
 
   return (
     <div className="container">
-      <div className="section-header">
-        <h2 className="section-title">Blog</h2>
+      {/* Hero Header */}
+      <div className="trainer-booking-header">
+        <div className="header-content">
+          <h1>Fitness Insights & Tips</h1>
+          <p>Discover expert advice, workout guides, and nutrition tips to fuel your fitness journey</p>
+        </div>
       </div>
 
-      {/* Filter Section (Category only) */}
+      {/* Filters: Search + Category */}
       <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
+        {/* Search Bar */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Search articles..."
+            className="form-input"
+            style={{ flex: 1 }}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setCurrentPage(1); }}
+              className="btn btn-secondary"
+            >
+              Clear
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <label style={{ display: 'block', fontWeight: 'bold', margin: 0 }}>Filter by Category:</label>
           {selectedCategory && (

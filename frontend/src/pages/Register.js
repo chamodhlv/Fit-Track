@@ -77,6 +77,8 @@ const Register = () => {
               onChange={handleChange}
               className="form-input"
               placeholder="Enter your full name"
+              minLength="4"
+              maxLength="30"
               required
             />
           </div>
@@ -216,7 +218,7 @@ const Register = () => {
                 placeholder="Weight in kg"
                 min="30"
                 max="300"
-                step="0.1"
+                step="1"
                 required
               />
             </div>

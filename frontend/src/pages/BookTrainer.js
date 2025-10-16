@@ -8,35 +8,35 @@ const TrainerCard = ({ trainer, onSelect }) => (
     <div className="trainer-card-header">
       <div>
         {trainer.profileImage ? (
-          <img src={trainer.profileImage} alt={trainer.fullName} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
+          <img src={trainer.profileImage} alt={trainer.fullName} />
         ) : (
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#eee' }} />
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f3f4f6' }} />
         )}
       </div>
       <div style={{ flex: 1 }}>
-        <h4 style={{ margin: 0 }}>{trainer.fullName}</h4>
-        <div style={{ marginTop: 2, fontSize: 13, color: '#666' }}>{trainer.bio?.slice(0, 80)}{trainer.bio?.length > 80 ? '...' : ''}</div>
+        <h4>{trainer.fullName}</h4>
+        <div>{trainer.bio?.slice(0, 60)}{trainer.bio?.length > 60 ? '...' : ''}</div>
       </div>
     </div>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: '0.5rem' }}>
-      {trainer.specialties?.map(s => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {trainer.specialties?.slice(0, 3).map(s => (
         <span key={s} className="specialty-tag">{s}</span>
       ))}
     </div>
     <div className="trainer-card-footer">
-      <div><strong>LKR {trainer.sessionRate}/Per Session</strong></div>
-      <button className="btn btn-primary" onClick={() => onSelect(trainer)}>View & Book</button>
+      <div>LKR {trainer.sessionRate}</div>
+      <button className="btn btn-primary" onClick={() => onSelect(trainer)}>Book</button>
     </div>
   </div>
 );
 
 const BookingRow = ({ b, onDownload }) => (
   <tr>
-    <td>{b.trainer?.fullName}</td>
-    <td>{b.date}</td>
-    <td>LKR {b.amount}</td>
+    <td style={{ fontWeight: 500, color: '#111827' }}>{b.trainer?.fullName}</td>
+    <td style={{ color: '#6b7280' }}>{b.date}</td>
+    <td style={{ fontWeight: 600, color: '#111827' }}>LKR {b.amount}</td>
     <td className="text-right">
-      <button className="btn btn-sm" onClick={() => onDownload(b._id)}>Download PDF</button>
+      <button className="btn btn-sm" onClick={() => onDownload(b._id)} style={{ background: '#667eea', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem' }}>Download</button>
     </td>
   </tr>
 );
@@ -47,6 +47,7 @@ const BookTrainer = () => {
   const [trainers, setTrainers] = useState([]);
   const [tPage, setTPage] = useState(1);
   const [tTotalPages, setTTotalPages] = useState(1);
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedTrainer, setSelectedTrainer] = useState(null);
   const [selectedTrainerLoading, setSelectedTrainerLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
@@ -70,7 +71,7 @@ const BookTrainer = () => {
       ctrl.abort();
       if (trainersCtrlRef.current === ctrl) trainersCtrlRef.current = null;
     };
-  }, [tPage]);
+  }, [tPage, selectedSpecialty]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -88,7 +89,7 @@ const BookTrainer = () => {
   const loadTrainers = async (signal) => {
     try {
       setLoading(true);
-      const { data } = await publicTrainersAPI.list(tPage, 6, { signal });
+      const { data } = await publicTrainersAPI.list(tPage, 6, { signal }, { specialty: selectedSpecialty });
       setTTotalPages(data.totalPages || 1);
       setTrainers(data.trainers || []);
     } catch (e) {
@@ -175,15 +176,22 @@ const BookTrainer = () => {
 
   return (
     <div className="container">
-      <h1 style={{ marginBottom: '1rem' }}>Book a Trainer</h1>
+      {/* Hero Header */}
+      <div className="trainer-booking-header">
+        <div className="header-content">
+          <h1>Find Your Perfect Trainer</h1>
+          <p>Connect with certified fitness professionals to achieve your goals</p>
+        </div>
+      </div>
 
       {/* Previous Bookings */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginTop: 0 }}>Your Previous Bookings</h3>
+      {isAuthenticated && (
+      <div className="card" style={{ marginBottom: '2rem', border: '1px solid #e5e7eb', boxShadow: 'none' }}>
+        <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '1rem' }}>Your Bookings</h3>
         {bLoading ? (
           <div className="loading"><div className="spinner"/></div>
         ) : bookings.length === 0 ? (
-          <p>No bookings yet.</p>
+          <p style={{ color: '#6b7280', fontSize: '0.875rem', textAlign: 'center', padding: '2rem 0' }}>No bookings yet.</p>
         ) : (
           <div className="table-container">
             <table className="data-table">
@@ -211,10 +219,47 @@ const BookTrainer = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Browse Trainers */}
-      <div className="card">
-        <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Browse Personal Trainers</h3>
+      <div className="card" style={{ border: '1px solid #e5e7eb', boxShadow: 'none' }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 600, color: '#111827' }}>Available Trainers</h3>
+
+        {/* Specialty Filter (blog-style chips) */}
+        <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', margin: 0 }}>Filter by Specialty:</label>
+            {selectedSpecialty && (
+              <button
+                type="button"
+                onClick={() => { setSelectedSpecialty(''); setTPage(1); }}
+                className="btn btn-secondary"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {/* All */}
+            <button
+              onClick={() => { setSelectedSpecialty(''); setTPage(1); }}
+              className={`btn ${selectedSpecialty === '' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '14px', padding: '6px 12px', border: selectedSpecialty === '' ? '2px solid #007bff' : '1px solid #ddd' }}
+            >
+              All
+            </button>
+            {['Weight Loss','Strength Training','Yoga Instructor','Bodybuilding'].map((sp) => (
+              <button
+                key={sp}
+                onClick={() => { setSelectedSpecialty(sp); setTPage(1); }}
+                className={`btn ${selectedSpecialty === sp ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '14px', padding: '6px 12px', border: selectedSpecialty === sp ? '2px solid #007bff' : '1px solid #ddd' }}
+              >
+                {sp}
+              </button>
+            ))}
+          </div>
+        </div>
         {loading ? (
           <div className="loading"><div className="spinner"/></div>
         ) : (
@@ -225,7 +270,7 @@ const BookTrainer = () => {
           </div>
         )}
         {tTotalPages > 1 && (
-          <div className="pagination" style={{ marginTop: '1rem' }}>
+          <div className="pagination" style={{ marginTop: '1.5rem' }}>
             <button onClick={() => setTPage(p => Math.max(1, p - 1))} disabled={tPage === 1}>Previous</button>
             <span>Page {tPage} of {tTotalPages}</span>
             <button onClick={() => setTPage(p => Math.min(tTotalPages, p + 1))} disabled={tPage === tTotalPages}>Next</button>
@@ -233,70 +278,83 @@ const BookTrainer = () => {
         )}
       </div>
 
-      {/* Selected trainer modal-ish section */}
+      {/* Booking Modal */}
       {selectedTrainer && (
-        <div className="modal" style={{ display: 'block' }}>
-          <div className="modal-content" style={{ maxWidth: 560 }}>
-            <div className="modal-header">
-              <h3>Book {selectedTrainer.fullName}</h3>
-              <button className="close-btn" onClick={() => setSelectedTrainer(null)}>×</button>
-            </div>
-            <div className="modal-body">
-              {selectedTrainerLoading ? (
-                <div className="loading"><div className="spinner"/></div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                    <div>
-                      {selectedTrainer.profileImage ? (
-                        <img src={selectedTrainer.profileImage} alt={selectedTrainer.fullName} style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: 96, height: 96, borderRadius: '50%', background: '#eee' }} />
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ marginTop: 0 }}><strong>Rate:</strong> LKR {selectedTrainer.sessionRate}/Per Session</p>
-                      <p style={{ whiteSpace: 'pre-wrap' }}><strong>Bio:</strong> {selectedTrainer.bio || 'No bio provided.'}</p>
-                      <div style={{ marginTop: 6 }}>
-                        <strong>Specialties:</strong>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                          {selectedTrainer.specialties?.map((s) => (
-                            <span key={s} className="specialty-tag">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-                      {selectedTrainer.availability?.timeSlots?.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <strong>Available Time Slots:</strong>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                            {selectedTrainer.availability.timeSlots.map(ts => (
-                              <span key={`${ts.start}-${ts.end}`} className="time-slot">{ts.start} - {ts.end}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div style={{ marginTop: 8 }}>
-                        <strong>Location:</strong> Fit-Track GYM
-                      </div>
-                    </div>
+        <div className="booking-modal-overlay" onClick={() => setSelectedTrainer(null)}>
+          <div className="booking-modal" onClick={(e) => e.stopPropagation()}>
+            {selectedTrainerLoading ? (
+              <div className="loading"><div className="spinner"/></div>
+            ) : (
+              <>
+                {/* Trainer Info */}
+                <div className="booking-modal-trainer">
+                  <div className="trainer-avatar">
+                    {selectedTrainer.profileImage ? (
+                      <img src={selectedTrainer.profileImage} alt={selectedTrainer.fullName} />
+                    ) : (
+                      <div className="avatar-placeholder" />
+                    )}
                   </div>
-                </>
-              )}
-              <div className="form-group">
-                <label>Select Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setSelectedTrainer(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleBook}>Book Session</button>
-            </div>
+                  <div className="trainer-info">
+                    <h3>{selectedTrainer.fullName}</h3>
+                    <p className="trainer-bio">{selectedTrainer.bio || 'Certified fitness professional'}</p>
+                  </div>
+                  <button className="modal-close" onClick={() => setSelectedTrainer(null)}>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Session Details */}
+                <div className="booking-modal-details">
+                  <div className="detail-item">
+                    <span className="detail-label">Session Rate</span>
+                    <span className="detail-value">LKR {selectedTrainer.sessionRate}</span>
+                  </div>
+                  
+                  {selectedTrainer.specialties?.length > 0 && (
+                    <div className="detail-item">
+                      <span className="detail-label">Specialties</span>
+                      <div className="detail-tags">
+                        {selectedTrainer.specialties.map((s) => (
+                          <span key={s} className="detail-tag">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedTrainer.availability?.timeSlots?.length > 0 && (
+                    <div className="detail-item">
+                      <span className="detail-label">Available Times</span>
+                      <div className="detail-tags">
+                        {selectedTrainer.availability.timeSlots.map(ts => (
+                          <span key={`${ts.start}-${ts.end}`} className="detail-tag">{ts.start} - {ts.end}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Date Selection */}
+                  <div className="detail-item">
+                    <label className="detail-label">Select Date</label>
+                    <input
+                      type="date"
+                      className="booking-date-input"
+                      value={selectedDate}
+                      onChange={e => setSelectedDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="booking-modal-actions">
+                  <button className="btn-modal-cancel" onClick={() => setSelectedTrainer(null)}>Cancel</button>
+                  <button className="btn-modal-confirm" onClick={handleBook}>Confirm Booking</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

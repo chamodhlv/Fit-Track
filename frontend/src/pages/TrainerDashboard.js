@@ -309,13 +309,26 @@ const TrainerDashboard = () => {
       return;
     }
 
+    // Validate bio min length
+    if (!profileForm.bio || profileForm.bio.trim().length < 10) {
+      toast.error('Bio must be at least 10 characters');
+      return;
+    }
+
+    // Validate session rate
+    const rate = parseFloat(profileForm.sessionRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 5000) {
+      toast.error('Please enter a valid session rate (0–5000)');
+      return;
+    }
+
     try {
       const payload = {
         fullName: profileForm.fullName,
         email: profileForm.email,
         bio: profileForm.bio,
         specialties: profileForm.specialties,
-        sessionRate: parseFloat(profileForm.sessionRate),
+        sessionRate: rate,
         availability: profileForm.availability,
         profileImage: profileForm.profileImage
       };
@@ -456,7 +469,7 @@ const TrainerDashboard = () => {
               <div className="form-row">
                 <div className="form-group">
                   <label>Session Rate (LKR per session)</label>
-                  <input type="number" min="0" step="1" value={profileForm.sessionRate}
+                  <input type="number" min="0" max="5000" step="1" value={profileForm.sessionRate}
                     onChange={(e) => setProfileForm({ ...profileForm, sessionRate: e.target.value })}
                     className="form-input" required />
                 </div>
@@ -465,7 +478,7 @@ const TrainerDashboard = () => {
                 <label>Bio</label>
                 <textarea value={profileForm.bio}
                   onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                  className="form-input" rows="4" style={{ resize: 'vertical' }} required />
+                  className="form-input" rows="4" style={{ resize: 'vertical' }} required minLength={10} />
               </div>
               <div className="form-group">
                 <label>Specialties (Select all that apply)</label>

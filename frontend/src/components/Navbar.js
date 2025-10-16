@@ -17,6 +17,7 @@ const Navbar = () => {
         
         {isAuthenticated ? (
           <div className="navbar-nav">
+            <Link to="/" className="nav-link">Home</Link>
             {isAdmin ? (
               <Link to="/admin" className="nav-link">Admin Dashboard</Link>
             ) : isTrainer ? (
@@ -41,10 +42,7 @@ const Navbar = () => {
           </div>
         ) : (
           <div className="navbar-nav">
-            <Link to="/blog" className="nav-link">Blog</Link>
-            <Link to="/book-trainer" className="nav-link">Book a Trainer</Link>
-            <Link to="/recipes" className="nav-link">Recipes</Link>
-            <Link to="/events" className="nav-link">Events</Link>
+            <Link to="/" className="nav-link">Home</Link>
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/register" className="nav-link">Register</Link>
             <Link to="/register-trainer" className="nav-link" style={{ 

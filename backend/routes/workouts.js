@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Workout = require('../models/Workout');
 const { auth } = require('../middleware/auth');
 const mongoose = require('mongoose');
+const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 
@@ -15,13 +16,30 @@ router.get('/', auth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const workouts = await Workout.find({ user: req.user._id })
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('user', 'fullName email');
+    const category = req.query.category;
+    const search = req.query.search;
+    const filter = { user: req.user._id };
+    const allowed = ['strength', 'cardio', 'flexibility', 'mixed'];
+    if (category && allowed.includes(category)) {
+      filter.category = category;
+    }
+    if (typeof search === 'string' && search.trim()) {
+      const rx = new RegExp(search.trim(), 'i');
+      filter.$or = [
+        { title: rx },
+        { notes: rx },
+        { 'exercises.name': rx }
+      ];
+    }
 
-    const total = await Workout.countDocuments({ user: req.user._id });
+    const [workouts, total] = await Promise.all([
+      Workout.find(filter)
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('user', 'fullName email'),
+      Workout.countDocuments(filter)
+    ]);
 
     res.json({
       workouts,
@@ -159,6 +177,143 @@ router.get('/history/by-date', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/workouts/history/pdf
+// @desc    Get monthly workout history as PDF
+// @access  Private
+router.get('/history/pdf', auth, async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+    if (!y || !m || m < 1 || m > 12) {
+      return res.status(400).json({ message: 'Please provide valid year and month (1-12)' });
+    }
+
+    const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    const results = await Workout.aggregate([
+      { $match: { user: userId } },
+      { $project: { doc: '$$ROOT', datesRaw: { $concatArrays: [ { $ifNull: ['$completions', []] }, { $cond: [{ $ne: ['$completedAt', null] }, ['$completedAt'], []] } ] } } },
+      { $project: { doc: 1, dates: { $setUnion: [ { $map: { input: '$datesRaw', as: 'd', in: { $dateTrunc: { date: '$$d', unit: 'day' } } } } ] } } },
+      { $unwind: '$dates' },
+      { $match: { dates: { $gte: start, $lt: end } } },
+      { $project: { doc: 1, completedOn: '$dates' } },
+      { $sort: { completedOn: 1 } }
+    ]);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const filename = `workout-history-${y}-${String(m).padStart(2,'0')}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res);
+
+    const monthLabel = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    doc.fontSize(18).text('Workout History', { align: 'center' });
+    doc.moveDown(0.2);
+    doc.fontSize(12).text(monthLabel, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(12).text(`Name: ${req.user.fullName || ''}`);
+    doc.text(`Email: ${req.user.email || ''}`);
+    doc.moveDown();
+
+    // If no data, display message and finish
+    if (!results.length) {
+      doc.text('No completed workouts for this month.', { align: 'left' });
+      doc.end();
+      return;
+    }
+
+    // Table configuration
+    const startX = 50;
+    const endX = 550;
+    const tableWidth = endX - startX; // 500
+    const colWidths = {
+      date: 90,
+      title: 240,
+      duration: 90,
+      category: 80,
+    };
+    const headerHeight = 26;
+    const minRowHeight = 22;
+    const bottomMargin = 50;
+
+    const drawHeader = () => {
+      const y = doc.y;
+      doc.save();
+      doc.fillColor('#f3f4f6').rect(startX, y, tableWidth, headerHeight).fill();
+      doc.fillColor('#111827');
+      doc.fontSize(12).font('Helvetica-Bold');
+      let x = startX + 8;
+      doc.text('Date', x, y + 7, { width: colWidths.date - 12 }); x += colWidths.date;
+      doc.text('Title', x + 8, y + 7, { width: colWidths.title - 12 }); x += colWidths.title;
+      doc.text('Duration', x + 8, y + 7, { width: colWidths.duration - 12 }); x += colWidths.duration;
+      doc.text('Category', x + 8, y + 7, { width: colWidths.category - 12 });
+      // Border bottom
+      doc.strokeColor('#e5e7eb').lineWidth(0.5).moveTo(startX, y + headerHeight).lineTo(endX, y + headerHeight).stroke();
+      doc.restore();
+      doc.moveDown();
+      doc.y = y + headerHeight + 2;
+    };
+
+    const ensureSpace = (nextRowHeight) => {
+      const available = doc.page.height - bottomMargin - doc.y;
+      if (available < nextRowHeight + 10) {
+        doc.addPage();
+        drawHeader();
+      }
+    };
+
+    // Draw header once
+    drawHeader();
+
+    // Rows
+    doc.font('Helvetica').fontSize(11).fillColor('#111827');
+    let rowIndex = 0;
+    for (const r of results) {
+      const w = r.doc;
+      const dstr = new Date(r.completedOn).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      // Compute dynamic height based on title wrapping
+      const titleText = w.title || '';
+      const titleHeight = doc.heightOfString(titleText, { width: colWidths.title - 12, align: 'left' });
+      const rowHeight = Math.max(minRowHeight, titleHeight + 8);
+
+      ensureSpace(rowHeight);
+
+      const y = doc.y;
+      // Zebra stripe background
+      if (rowIndex % 2 === 0) {
+        doc.save();
+        doc.fillColor('#fafafa').rect(startX, y, tableWidth, rowHeight).fill();
+        doc.restore();
+      }
+
+      // Cell texts
+      let x = startX + 8;
+      doc.fillColor('#111827').text(dstr, x, y + 6, { width: colWidths.date - 12 }); x += colWidths.date;
+      doc.text(titleText, x + 8, y + 6, { width: colWidths.title - 12 }); x += colWidths.title;
+      doc.text(`${w.totalDuration || 0} min`, x + 8, y + 6, { width: colWidths.duration - 12 }); x += colWidths.duration;
+      doc.text(w.category || 'mixed', x + 8, y + 6, { width: colWidths.category - 12 });
+
+      // Row bottom border
+      doc.strokeColor('#e5e7eb').lineWidth(0.5).moveTo(startX, y + rowHeight).lineTo(endX, y + rowHeight).stroke();
+
+      // Advance Y
+      doc.y = y + rowHeight;
+      rowIndex++;
+    }
+
+    doc.end();
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/workouts/stats/summary
 // @desc    Get workout statistics for user
 // @access  Private
@@ -253,13 +408,12 @@ router.post('/', [
 
     const { title, date, exercises, totalDuration, notes, category } = req.body;
 
-    // Validate date if provided (normalize to UTC midnight for comparison)
+    // Reject past dates (normalize to UTC midnight)
     if (date) {
       const d = new Date(date);
       if (isNaN(d.getTime())) {
         return res.status(400).json({ message: 'Invalid date format' });
       }
-      // Compare dates at UTC midnight to avoid timezone issues
       const now = new Date();
       const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
       const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -268,14 +422,55 @@ router.post('/', [
       }
     }
 
+    // Reject past dates on update if a date is provided
+    if (date !== undefined) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      const now = new Date();
+      const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      if (pickedUTC.getTime() < todayUTC.getTime()) {
+        return res.status(400).json({ message: 'Workout date cannot be in the past' });
+      }
+    }
+
+    // Prevent past dates on update if date is provided (normalize to UTC day)
+    if (date !== undefined) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      const today = new Date();
+      const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      const pickedUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      if (pickedUTC.getTime() < todayUTC.getTime()) {
+        return res.status(400).json({ message: 'Workout date cannot be in the past' });
+      }
+    }
+
+    // Enforce frozen date (always today at creation), auto-computed totalDuration, and zero weights for cardio/flexibility
+    const finalCategory = category || 'mixed';
+    const srcExercises = Array.isArray(exercises) ? exercises : [];
+    const sanitizedExercises = srcExercises.map((ex) => ({
+      name: ex?.name || '',
+      sets: Number(ex?.sets) || 1,
+      reps: Number(ex?.reps) || 1,
+      weight: (finalCategory === 'cardio' || finalCategory === 'flexibility') ? 0 : (Number(ex?.weight) || 0),
+      duration: Number(ex?.duration) || 0,
+      notes: ex?.notes || ''
+    }));
+    const computedTotal = sanitizedExercises.reduce((sum, ex) => sum + (Number(ex.duration) || 0), 0);
+
     const workout = new Workout({
       user: req.user._id,
       title,
-      date: date || new Date(),
-      exercises,
-      totalDuration: totalDuration || 0,
+      date: new Date(),
+      exercises: sanitizedExercises,
+      totalDuration: computedTotal,
       notes,
-      category: category || 'mixed'
+      category: finalCategory
     });
 
     await workout.save();
@@ -326,13 +521,30 @@ router.put('/:id', [
 
     const { title, date, exercises, totalDuration, notes, category } = req.body;
 
-    // Update workout fields
+    // Update simple fields
     if (title !== undefined) workout.title = title;
-    if (date !== undefined) workout.date = date;
-    if (exercises !== undefined) workout.exercises = exercises;
-    if (totalDuration !== undefined) workout.totalDuration = totalDuration;
+    // Freeze date: ignore any provided date on update
+    // if (date !== undefined) { /* ignored to keep original date */ }
     if (notes !== undefined) workout.notes = notes;
-    if (category !== undefined) workout.category = category;
+
+    // Determine final category (existing unless explicitly changed)
+    const finalCategory = (category !== undefined) ? category : workout.category;
+    workout.category = finalCategory;
+
+    // Determine source exercises (incoming or existing)
+    const srcExercises = (exercises !== undefined) ? exercises : (workout.exercises || []);
+    const sanitizedExercises = (Array.isArray(srcExercises) ? srcExercises : []).map((ex) => ({
+      name: ex?.name || '',
+      sets: Number(ex?.sets) || 1,
+      reps: Number(ex?.reps) || 1,
+      weight: (finalCategory === 'cardio' || finalCategory === 'flexibility') ? 0 : (Number(ex?.weight) || 0),
+      duration: Number(ex?.duration) || 0,
+      notes: ex?.notes || ''
+    }));
+    const computedTotal = sanitizedExercises.reduce((sum, ex) => sum + (Number(ex.duration) || 0), 0);
+
+    workout.exercises = sanitizedExercises;
+    workout.totalDuration = computedTotal;
 
     await workout.save();
     await workout.populate('user', 'fullName email');
