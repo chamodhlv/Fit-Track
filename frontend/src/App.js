@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import TrainerRegister from './pages/TrainerRegister';
@@ -106,31 +107,59 @@ function AppContent() {
           />
           <Route 
             path="/blog" 
-            element={<BlogList />} 
+            element={
+              <ProtectedRoute>
+                <BlogList />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/blog/:slug" 
-            element={<BlogDetail />} 
+            element={
+              <ProtectedRoute>
+                <BlogDetail />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/recipes" 
-            element={<RecipeList />} 
+            element={
+              <ProtectedRoute>
+                <RecipeList />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/recipes/:slug" 
-            element={<RecipeDetail />} 
+            element={
+              <ProtectedRoute>
+                <RecipeDetail />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/events" 
-            element={<EventsList />} 
+            element={
+              <ProtectedRoute>
+                <EventsList />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/events/:id" 
-            element={<EventDetail />} 
+            element={
+              <ProtectedRoute>
+                <EventDetail />
+              </ProtectedRoute>
+            } 
           />
           <Route
             path="/book-trainer"
-            element={<BookTrainer />}
+            element={
+              <ProtectedRoute>
+                <BookTrainer />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/dashboard" 
@@ -236,7 +265,7 @@ function AppContent() {
               </ProtectedRoute>
             } 
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Home />} />
         </Routes>
       </main>
       <Toaster 

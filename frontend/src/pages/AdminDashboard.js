@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, blogsAPI, recipesAPI, eventsAPI } from '../services/api';
-import { LayoutDashboard, Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, Users, Edit, Trash2, UserPlus, FileText, Plus, UserCheck, UserX, Clock, Eye, EyeOff, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
@@ -200,8 +200,25 @@ const AdminDashboard = () => {
         toast.error('Please set a time slot (start and end) for the trainer');
         return;
       }
+      // Validate specialties
+      if (!Array.isArray(trainerEditForm.specialties) || trainerEditForm.specialties.length === 0) {
+        toast.error('Please select at least one specialty');
+        return;
+      }
+      // Validate bio length
+      if (!trainerEditForm.bio || trainerEditForm.bio.trim().length < 10) {
+        toast.error('Bio must be at least 10 characters');
+        return;
+      }
+      // Validate session rate
+      const rate = parseFloat(trainerEditForm.sessionRate);
+      if (!Number.isFinite(rate) || rate < 0 || rate > 5000) {
+        toast.error('Please enter a valid session rate (0–5000)');
+        return;
+      }
       const payload = {
         ...trainerEditForm,
+        sessionRate: rate,
         availability: {
           ...(trainerEditForm.availability || {}),
           timeSlots: [{ start: firstSlot.start, end: firstSlot.end }]
@@ -269,6 +286,27 @@ const AdminDashboard = () => {
         toast.error('Please add at least one time slot (start and end) for the trainer');
         return;
       }
+      // Validate specialties
+      if (!Array.isArray(newTrainerForm.specialties) || newTrainerForm.specialties.length === 0) {
+        toast.error('Please select at least one specialty');
+        return;
+      }
+      // Validate bio length
+      if (!newTrainerForm.bio || newTrainerForm.bio.trim().length < 10) {
+        toast.error('Bio must be at least 10 characters');
+        return;
+      }
+      // Validate password length
+      if (!newTrainerForm.password || newTrainerForm.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return;
+      }
+      // Validate session rate
+      const createRate = Number(newTrainerForm.sessionRate);
+      if (!Number.isFinite(createRate) || createRate < 0 || createRate > 5000) {
+        toast.error('Please enter a valid session rate (0–5000)');
+        return;
+      }
       const token = localStorage.getItem('token');
       const response = await fetch('/api/users/trainers', {
         method: 'POST',
@@ -288,7 +326,7 @@ const AdminDashboard = () => {
           experienceLevel: newTrainerForm.experienceLevel || 'advanced',
           bio: newTrainerForm.bio,
           specialties: newTrainerForm.specialties,
-          sessionRate: Number(newTrainerForm.sessionRate),
+          sessionRate: createRate,
           availability: { ...(newTrainerForm.availability || {}), timeSlots: slots },
           profileImage: newTrainerForm.profileImage || '',
           role: 'trainer',
@@ -497,6 +535,25 @@ const AdminDashboard = () => {
       fetchEvents();
     } catch (error) {
       toast.error('Failed to delete event');
+    }
+  };
+
+
+  const handleDownloadEventReport = async (id, name) => {
+    try {
+      const res = await eventsAPI.downloadReport(id);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safe = String(name || 'event').toLowerCase().replace(/[^a-z0-9-_]/gi, '-');
+      a.download = `event-report-${safe}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error('Failed to download event report');
     }
   };
 
@@ -998,6 +1055,7 @@ const AdminDashboard = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button className="btn btn-primary" title="Download Report" onClick={() => handleDownloadEventReport(ev._id, ev.name)}><Download size={12} /></button>
                         <button className="btn btn-secondary" title="Edit" onClick={() => handleEditEvent(ev)}><Edit size={12} /></button>
                         <button className="btn btn-danger" title="Delete" onClick={() => handleDeleteEvent(ev._id)}><Trash2 size={12} /></button>
                       </div>
@@ -1568,6 +1626,7 @@ const AdminDashboard = () => {
                     value={newTrainerForm.password}
                     onChange={(e) => setNewTrainerForm({ ...newTrainerForm, password: e.target.value })}
                     className="form-input"
+                    minLength={6}
                     required
                   />
                 </div>
@@ -1580,6 +1639,7 @@ const AdminDashboard = () => {
                     onChange={(e) => setNewTrainerForm({ ...newTrainerForm, sessionRate: e.target.value })}
                     className="form-input"
                     min="0"
+                    max="5000"
                     step="0.01"
                     required
                   />
@@ -1593,6 +1653,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setNewTrainerForm({ ...newTrainerForm, bio: e.target.value })}
                   className="form-input"
                   rows="3"
+                  minLength={10}
                   required
                 />
               </div>
@@ -1606,6 +1667,11 @@ const AdminDashboard = () => {
                   onChange={(e) => {
                     const file = e.target.files && e.target.files[0];
                     if (file) {
+                      const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+                      if (file.size > MAX_SIZE_BYTES) {
+                        toast.error('Please upload an image smaller than 2 MB');
+                        return;
+                      }
                       const reader = new FileReader();
                       reader.onloadend = () => setNewTrainerForm({ ...newTrainerForm, profileImage: reader.result });
                       reader.readAsDataURL(file);
@@ -1707,13 +1773,13 @@ const AdminDashboard = () => {
 
                 <div className="form-group">
                   <label>Bio</label>
-                  <textarea className="form-input" rows="3" value={trainerEditForm.bio} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, bio: e.target.value })} />
+                  <textarea className="form-input" rows="3" value={trainerEditForm.bio} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, bio: e.target.value })} required minLength={10} />
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label>Session Rate (LKR per session)</label>
-                    <input type="number" min="0" step="0.01" className="form-input" value={trainerEditForm.sessionRate} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, sessionRate: e.target.value })} />
+                    <input type="number" min="0" max="5000" step="0.01" className="form-input" value={trainerEditForm.sessionRate} onChange={(e) => setTrainerEditForm({ ...trainerEditForm, sessionRate: e.target.value })} />
                   </div>
                 </div>
 

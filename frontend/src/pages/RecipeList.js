@@ -126,8 +126,12 @@ const RecipeList = () => {
 
   return (
     <div className="container">
-      <div className="section-header">
-        <h2 className="section-title">Recipes</h2>
+      {/* Hero Header */}
+      <div className="trainer-booking-header">
+        <div className="header-content">
+          <h1>Delicious & Nutritious Recipes</h1>
+          <p>Fuel your fitness journey with healthy, easy-to-make meals designed for your goals</p>
+        </div>
       </div>
 
       {/* Search Section */}

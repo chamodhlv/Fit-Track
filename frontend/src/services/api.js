@@ -56,7 +56,14 @@ export const usersAPI = {
 
 // Workouts API
 export const workoutsAPI = {
-  getWorkouts: (page = 1, limit = 10) => api.get(`/workouts?page=${page}&limit=${limit}`),
+  getWorkouts: (page = 1, limit = 10, filters = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (filters.category && filters.category !== 'all') params.append('category', filters.category);
+    if (filters.search) params.append('search', filters.search);
+    return api.get(`/workouts?${params.toString()}`);
+  },
   getWorkout: (id) => api.get(`/workouts/${id}`),
   createWorkout: (workoutData) => api.post('/workouts', workoutData),
   updateWorkout: (id, workoutData) => api.put(`/workouts/${id}`, workoutData),
@@ -66,6 +73,7 @@ export const workoutsAPI = {
   uncomplete: (id, completedAt) => api.patch(`/workouts/${id}/uncomplete`, { completedAt }),
   getHistoryCalendar: (year, month) => api.get(`/workouts/history/calendar?year=${year}&month=${month}`),
   getHistoryByDate: (date) => api.get(`/workouts/history/by-date?date=${encodeURIComponent(date)}`),
+  downloadHistoryPdf: (year, month) => api.get(`/workouts/history/pdf?year=${year}&month=${month}`, { responseType: 'blob' }),
 };
 
 // Blogs API
@@ -77,9 +85,11 @@ export const blogsAPI = {
     params.append('limit', limit);
     if (filters.tag) params.append('tag', filters.tag);
     if (filters.category) params.append('category', filters.category);
+    if (filters.search) params.append('search', filters.search);
     return api.get(`/blogs?${params.toString()}`);
   },
   getBySlug: (slug) => api.get(`/blogs/${slug}`),
+  downloadPdf: (slug) => api.get(`/blogs/${slug}/pdf`, { responseType: 'blob' }),
   // trainer
   getMyPosts: (page = 1, limit = 10, status = null) => {
     const params = new URLSearchParams();
@@ -122,6 +132,7 @@ export const recipesAPI = {
   getBySlug: (slug) => api.get(`/recipes/${slug}`),
   getFavorites: (page = 1, limit = 10) => api.get(`/recipes/favorites?page=${page}&limit=${limit}`),
   toggleFavorite: (id) => api.post(`/recipes/favorites/${id}`),
+  downloadPdf: (slug) => api.get(`/recipes/${slug}/pdf`, { responseType: 'blob' }),
   // trainer
   getMyRecipes: (page = 1, limit = 10, status = null) => {
     const params = new URLSearchParams();
@@ -144,7 +155,13 @@ export const recipesAPI = {
 
 // Public Trainers API for Booking
 export const publicTrainersAPI = {
-  list: (page = 1, limit = 10, config = {}) => api.get(`/users/public-trainers?page=${page}&limit=${limit}`, config),
+  list: (page = 1, limit = 10, config = {}, filters = {}) => {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    if (filters.specialty) params.append('specialty', filters.specialty);
+    return api.get(`/users/public-trainers?${params.toString()}`, config);
+  },
   getById: (id, config = {}) => api.get(`/users/public-trainers/${id}`, config),
 };
 
@@ -168,6 +185,7 @@ export const eventsAPI = {
   create: (data) => api.post('/events', data),
   update: (id, data) => api.put(`/events/${id}`, data),
   remove: (id) => api.delete(`/events/${id}`),
+  downloadReport: (id) => api.get(`/events/${id}/report`, { responseType: 'blob' }),
 };
 
 export default api;

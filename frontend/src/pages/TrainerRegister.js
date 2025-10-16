@@ -26,7 +26,7 @@ const TrainerRegister = () => {
     specialties: [],
     sessionRate: "",
     availability: {
-      timeSlots: [{ start: "", end: "" }]
+      timeSlots: [{ start: "", end: "" }],
     },
     profileImage: "",
   });
@@ -36,26 +36,25 @@ const TrainerRegister = () => {
   const navigate = useNavigate();
 
   const specialtyOptions = [
-    'Weight Loss',
-    'Strength Training', 
-    'Yoga Instructor',
-    'Bodybuilding'
+    "Weight Loss",
+    "Strength Training",
+    "Yoga Instructor",
+    "Bodybuilding",
   ];
-
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name === 'specialties') {
+
+    if (name === "specialties") {
       if (checked) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          specialties: [...prev.specialties, value]
+          specialties: [...prev.specialties, value],
         }));
       } else {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          specialties: prev.specialties.filter(s => s !== value)
+          specialties: prev.specialties.filter((s) => s !== value),
         }));
       }
     } else {
@@ -72,7 +71,7 @@ const TrainerRegister = () => {
     // 2 MB client-side limit to prevent oversized uploads
     const MAX_SIZE_BYTES = 2 * 1024 * 1024;
     if (file.size > MAX_SIZE_BYTES) {
-      toast.error('Please upload an image smaller than 2 MB');
+      toast.error("Please upload an image smaller than 2 MB");
       return;
     }
     const reader = new FileReader();
@@ -85,16 +84,14 @@ const TrainerRegister = () => {
   const handleTimeSlotChange = (index, field, value) => {
     const newTimeSlots = [...formData.availability.timeSlots];
     newTimeSlots[index][field] = value;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       availability: {
         ...prev.availability,
-        timeSlots: newTimeSlots
-      }
+        timeSlots: newTimeSlots,
+      },
     }));
   };
-
-  // Restrict to a single time slot: no add/remove controls
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,20 +106,27 @@ const TrainerRegister = () => {
       return;
     }
 
-
-    if (formData.availability.timeSlots.some(slot => !slot.start || !slot.end)) {
+    if (
+      formData.availability.timeSlots.some((slot) => !slot.start || !slot.end)
+    ) {
       toast.error("Please fill in all time slots");
       return;
     }
 
+    // Validate session rate range
+    const rate = Number(formData.sessionRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 5000) {
+      toast.error('Please enter a valid session rate (0–5000)');
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register-trainer', {
-        method: 'POST',
+      const response = await fetch("/api/auth/register-trainer", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
@@ -131,17 +135,17 @@ const TrainerRegister = () => {
 
       if (response.ok) {
         toast.success(data.message, { duration: 10000 });
-        navigate('/login');
+        navigate("/login");
       } else {
         if (data.errors && Array.isArray(data.errors)) {
-          data.errors.forEach(error => toast.error(error.msg));
+          data.errors.forEach((error) => toast.error(error.msg));
         } else {
-          toast.error(data.message || 'Registration failed');
+          toast.error(data.message || "Registration failed");
         }
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      toast.error('Network error. Please try again.');
+      console.error("Registration error:", error);
+      toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -149,20 +153,26 @@ const TrainerRegister = () => {
 
   return (
     <div className="auth-container">
-      <div className="auth-card" style={{ maxWidth: '800px' }}>
+      <div className="auth-card" style={{ maxWidth: "800px" }}>
         <h1 className="auth-title">Register as Trainer</h1>
-        <p style={{ textAlign: 'center', marginBottom: '2rem', color: '#666' }}>
-          Join our team of professional trainers and help members achieve their fitness goals
+        <p style={{ textAlign: "center", marginBottom: "2rem", color: "#666" }}>
+          Join our team of professional trainers and help members achieve their
+          fitness goals
         </p>
-        
+
         <form onSubmit={handleSubmit} className="auth-form">
           {/* Basic Account Info */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Basic Account Information</h3>
-            
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ marginBottom: "1rem", color: "#333" }}>
+              Basic Account Information
+            </h3>
+
             <div className="form-group">
               <label className="form-label">
-                <User size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <User
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Full Name
               </label>
               <input
@@ -178,7 +188,10 @@ const TrainerRegister = () => {
 
             <div className="form-group">
               <label className="form-label">
-                <Mail size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <Mail
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Email Address
               </label>
               <input
@@ -195,7 +208,10 @@ const TrainerRegister = () => {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">
-                  <Lock size={16} style={{ marginRight: "8px", display: "inline" }} />
+                  <Lock
+                    size={16}
+                    style={{ marginRight: "8px", display: "inline" }}
+                  />
                   Password
                 </label>
                 <div style={{ position: "relative" }}>
@@ -231,7 +247,10 @@ const TrainerRegister = () => {
 
               <div className="form-group">
                 <label className="form-label">
-                  <Lock size={16} style={{ marginRight: "8px", display: "inline" }} />
+                  <Lock
+                    size={16}
+                    style={{ marginRight: "8px", display: "inline" }}
+                  />
                   Confirm Password
                 </label>
                 <div style={{ position: "relative" }}>
@@ -259,7 +278,11 @@ const TrainerRegister = () => {
                       color: "#666",
                     }}
                   >
-                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showConfirmPassword ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -267,12 +290,17 @@ const TrainerRegister = () => {
           </div>
 
           {/* Trainer-Specific Details */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Trainer Details</h3>
-            
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ marginBottom: "1rem", color: "#333" }}>
+              Trainer Details
+            </h3>
+
             <div className="form-group">
               <label className="form-label">
-                <FileText size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <FileText
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Bio
               </label>
               <textarea
@@ -284,25 +312,42 @@ const TrainerRegister = () => {
                 required
                 minLength="10"
                 rows="4"
-                style={{ resize: 'vertical' }}
+                style={{ resize: "vertical" }}
               />
             </div>
 
             <div className="form-group">
               <label className="form-label">
-                <Award size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <Award
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Specialties (Select all that apply)
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-                {specialtyOptions.map(specialty => (
-                  <label key={specialty} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: "0.5rem",
+                  marginTop: "0.5rem",
+                }}
+              >
+                {specialtyOptions.map((specialty) => (
+                  <label
+                    key={specialty}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       name="specialties"
                       value={specialty}
                       checked={formData.specialties.includes(specialty)}
                       onChange={handleChange}
-                      style={{ marginRight: '0.5rem' }}
+                      style={{ marginRight: "0.5rem" }}
                     />
                     {specialty}
                   </label>
@@ -312,7 +357,10 @@ const TrainerRegister = () => {
 
             <div className="form-group">
               <label className="form-label">
-                <DollarSign size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <DollarSign
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Session Rate (LKR per hour)
               </label>
               <input
@@ -324,14 +372,17 @@ const TrainerRegister = () => {
                 placeholder="Enter your hourly rate in LKR"
                 required
                 min="0"
+                max="5000"
                 step="1"
               />
             </div>
 
-
             <div className="form-group">
               <label className="form-label">
-                <Camera size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <Camera
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Profile Image (Optional)
               </label>
               <input
@@ -341,29 +392,47 @@ const TrainerRegister = () => {
                 className="form-input"
               />
               {formData.profileImage && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <img src={formData.profileImage} alt="Preview" style={{ maxWidth: '120px', borderRadius: '8px' }} />
+                <div style={{ marginTop: "0.5rem" }}>
+                  <img
+                    src={formData.profileImage}
+                    alt="Preview"
+                    style={{ maxWidth: "120px", borderRadius: "8px" }}
+                  />
                 </div>
               )}
             </div>
           </div>
 
           {/* Availability */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Availability</h3>
-            
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ marginBottom: "1rem", color: "#333" }}>
+              Availability
+            </h3>
 
             <div className="form-group">
               <label className="form-label">
-                <Clock size={16} style={{ marginRight: "8px", display: "inline" }} />
+                <Clock
+                  size={16}
+                  style={{ marginRight: "8px", display: "inline" }}
+                />
                 Time Slots
               </label>
               {formData.availability.timeSlots.map((slot, index) => (
-                <div key={index} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    marginBottom: "0.5rem",
+                    alignItems: "center",
+                  }}
+                >
                   <input
                     type="time"
                     value={slot.start}
-                    onChange={(e) => handleTimeSlotChange(index, 'start', e.target.value)}
+                    onChange={(e) =>
+                      handleTimeSlotChange(index, "start", e.target.value)
+                    }
                     className="form-input"
                     required
                     style={{ flex: 1 }}
@@ -372,7 +441,9 @@ const TrainerRegister = () => {
                   <input
                     type="time"
                     value={slot.end}
-                    onChange={(e) => handleTimeSlotChange(index, 'end', e.target.value)}
+                    onChange={(e) =>
+                      handleTimeSlotChange(index, "end", e.target.value)
+                    }
                     className="form-input"
                     required
                     style={{ flex: 1 }}
@@ -388,13 +459,16 @@ const TrainerRegister = () => {
             disabled={loading}
             style={{ width: "100%" }}
           >
-            {loading ? "Submitting Application..." : "Submit Trainer Application"}
+            {loading
+              ? "Submitting Application..."
+              : "Submit Trainer Application"}
           </button>
         </form>
 
         <div className="auth-link">
           <p>
-            Want to register as a member instead? <Link to="/register">Register as Member</Link>
+            Want to register as a member instead?{" "}
+            <Link to="/register">Register as Member</Link>
           </p>
           <p>
             Already have an account? <Link to="/login">Sign in here</Link>

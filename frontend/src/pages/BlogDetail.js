@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { blogsAPI } from '../services/api';
 import Comments from '../components/Comments';
+import { ArrowLeft, Download } from 'lucide-react';
 
 const BlogDetail = () => {
   const { slug } = useParams();
@@ -36,6 +37,24 @@ const BlogDetail = () => {
     fetchPost();
   }, [slug]);
 
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await blogsAPI.downloadPdf(slug);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeSlug = (slug || 'post').toLowerCase();
+      a.download = `${safeSlug}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      // silently fail for now
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -57,10 +76,19 @@ const BlogDetail = () => {
 
   return (
     <div className="container">
-      <div className="section-header">
-        <h2 className="section-title">{post.title}</h2>
-        <Link to="/blog" className="btn btn-secondary">Back</Link>
+      <div className="section-header" style={{ alignItems: 'center', justifyContent: 'flex-end', marginBottom: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Link to="/blog" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ArrowLeft size={16} />
+            Back
+          </Link>
+          <button onClick={handleDownloadPdf} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Download size={16} />
+            Download as a PDF
+          </button>
+        </div>
       </div>
+      <h2 className="section-title" style={{ marginTop: 12, textAlign: 'left' }}>{post.title}</h2>
       {(() => {
         const url = typeof post.coverImageUrl === 'string' ? post.coverImageUrl.trim() : '';
         const safeUrl = url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) ? url : '';

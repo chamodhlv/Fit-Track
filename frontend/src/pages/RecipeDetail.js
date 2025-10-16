@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Download } from 'lucide-react';
 
 const RecipeDetail = () => {
   const { slug } = useParams();
@@ -27,6 +28,24 @@ const RecipeDetail = () => {
 
     fetchRecipe();
   }, [slug]);
+
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await recipesAPI.downloadPdf(slug);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (recipe?.slug || slug || 'recipe').toLowerCase();
+      a.download = `${safeName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error('Failed to download recipe PDF');
+    }
+  };
 
   const toggleFavorite = async () => {
     if (!user) {
@@ -66,21 +85,27 @@ const RecipeDetail = () => {
 
   return (
     <div className="container">
-      <div className="section-header">
+      <div className="section-header" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/recipes" className="btn btn-secondary">← Back to Recipes</Link>
-        {user && (
-          <button
-            onClick={toggleFavorite}
-            className={`btn ${isFavorite ? 'btn-danger' : 'btn-outline-danger'}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            {isFavorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={handleDownloadPdf} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Download size={16} />
+            Download as PDF
           </button>
-        )}
+          {user && (
+            <button
+              onClick={toggleFavorite}
+              className={`btn ${isFavorite ? 'btn-danger' : 'btn-outline-danger'}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {isFavorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="card" style={{ padding: '24px' }}>

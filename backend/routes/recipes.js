@@ -3,6 +3,9 @@ const { body, validationResult } = require('express-validator');
 const Recipe = require('../models/Recipe');
 const User = require('../models/User');
 const { auth, adminAuth, optionalAuth } = require('../middleware/auth');
+const PDFDocument = require('pdfkit');
+const https = require('https');
+const http = require('http');
 
 const router = express.Router();
 
@@ -203,6 +206,111 @@ router.get('/my-recipes', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get trainer recipes error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Public: download a published recipe as PDF
+router.get('/:slug/pdf', async (req, res) => {
+  try {
+    const recipe = await Recipe.findOne({ slug: req.params.slug, status: 'published' }).populate('author', 'fullName');
+    if (!recipe) return res.status(404).json({ message: 'Recipe not found' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const safeSlug = String(req.params.slug || 'recipe').replace(/[^a-z0-9-_]/gi, '-').toLowerCase();
+    res.setHeader('Content-Disposition', `attachment; filename="${safeSlug}.pdf"`);
+
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res);
+
+    // Title
+    doc.font('Helvetica-Bold').fontSize(20).text(recipe.name || 'Untitled Recipe', { align: 'left' });
+    doc.moveDown(0.5);
+
+    // Image (if http/https URL)
+    const imageUrl = typeof recipe.image === 'string' ? recipe.image.trim() : '';
+    const isHttp = imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+    const fetchImageBuffer = (url) => new Promise((resolve) => {
+      try {
+        const client = url.startsWith('https://') ? https : http;
+        client.get(url, (response) => {
+          const status = response.statusCode || 0;
+          const type = response.headers['content-type'] || '';
+          if (status >= 300 && status < 400 && response.headers.location) {
+            client.get(response.headers.location, (r2) => {
+              const chunks2 = [];
+              r2.on('data', (c) => chunks2.push(c));
+              r2.on('end', () => resolve({ buffer: Buffer.concat(chunks2), contentType: r2.headers['content-type'] || '' }));
+              r2.on('error', () => resolve(null));
+            }).on('error', () => resolve(null));
+            return;
+          }
+          if (!type.includes('image')) { resolve(null); return; }
+          const chunks = [];
+          response.on('data', (c) => chunks.push(c));
+          response.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: type }));
+          response.on('error', () => resolve(null));
+        }).on('error', () => resolve(null));
+      } catch {
+        resolve(null);
+      }
+    });
+
+    if (isHttp) {
+      const result = await fetchImageBuffer(imageUrl);
+      if (result && result.buffer && result.buffer.length > 0) {
+        try {
+          doc.image(result.buffer, { fit: [500, 300], align: 'center' });
+          doc.moveDown();
+        } catch {}
+      }
+    }
+
+    // Meta info removed per request (Category/Prep Time/Servings)
+
+    // Nutrition Facts
+    if (recipe.macronutrients) {
+      const m = recipe.macronutrients;
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111827').text('Nutrition Facts');
+      doc.moveDown(0.3);
+      doc.font('Helvetica').fontSize(11).fillColor('#111827');
+      doc.text(`Calories: ${m.calories ?? 0} kcal`);
+      doc.text(`Protein: ${m.proteins ?? 0} g`);
+      doc.text(`Carbs: ${m.carbohydrates ?? 0} g`);
+      doc.text(`Fats: ${m.fats ?? 0} g`);
+      doc.moveDown();
+    }
+
+    // Ingredients
+    if (Array.isArray(recipe.ingredients) && recipe.ingredients.length) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111827').text('Ingredients');
+      doc.moveDown(0.3);
+      doc.font('Helvetica').fontSize(11).fillColor('#111827');
+      for (const ing of recipe.ingredients) {
+        const qty = ing.quantity ? `${ing.quantity} ` : '';
+        const nm = ing.name || '';
+        doc.text(`• ${qty}${nm}`);
+      }
+      doc.moveDown();
+    }
+
+    // Instructions
+    if (recipe.instructions) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111827').text('Instructions');
+      doc.moveDown(0.3);
+      doc.font('Helvetica').fontSize(11).fillColor('#111827').text(recipe.instructions, { width: 500 });
+      doc.moveDown();
+    }
+
+    // Footer
+    doc.moveDown();
+    doc.fontSize(10).fillColor('#6b7280').text('Downloaded from Fit-Track', { align: 'center' });
+    const _genDate = new Date();
+    const _genLabel = _genDate.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    doc.fontSize(9).fillColor('#9ca3af').text(`Generated on ${_genLabel}`, { align: 'center' });
+
+    doc.end();
+  } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 });
